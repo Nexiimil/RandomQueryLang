@@ -25,5 +25,8 @@ public class Main {
 
         // Process the query
         IPredicate results = PredicateFactory.ProcessQuery(query);
+        scanner.close();
+        System.out.println("Query Results:");
+        System.out.println(results);
     }
 }

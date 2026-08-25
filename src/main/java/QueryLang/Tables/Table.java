@@ -8,11 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import QueryLang.ITerm;
+import QueryLang.Predicates.IPredicate;
+import QueryLang.Predicates.PredicateFactory;
+import QueryLang.Thing;
 
 public class Table implements ITerm{
     private String name;
-    private List<IPredicate> baseEntries;
-    private List<IPredicate> tempEntries;
+    private List<Thing> baseEntries;
+    private List<Thing> tempEntries;
 
     @Override
     public String getType() {
@@ -34,19 +37,42 @@ public class Table implements ITerm{
         return name;
     }
 
-    public List<IPredicate> getBaseEntries() {
+    public List<Thing> getBaseEntries() {
         return baseEntries;
     }
-    
+
+    public List<Thing> getNormalisedBaseEntries() {
+        List<Thing> normalisedBaseEntries = new ArrayList<Thing>();
+        normalisedBaseEntries.addAll(this.getBaseEntries());
+        int totalChance = 0;
+        for(Thing thing : normalisedBaseEntries)
+        {
+            totalChance += thing.getChance();
+        }
+        return baseEntries;
+    }
+
+    public List<Thing> getTemporaryEntries() {
+        return tempEntries;
+    }
+
+    public List<Thing> getAllEntries() {
+        List<Thing> allEntries = new ArrayList<>(baseEntries);
+        allEntries.addAll(tempEntries);
+        return allEntries;
+    }
+
+    public List<Thing> getAllEntriesWithNormalisedChance() {
+        List<Thing> allEntries = new ArrayList<>(baseEntries);
+        allEntries.addAll(tempEntries);
+        return allEntries;
+    }
+
     public void addBaseEntry(String entry) {
         baseEntries.add(PredicateFactory.ProcessQuery(entry));
     }
 
-    public List<IPredicate> getTemporaryEntries() {
-        return tempEntries;
-    }
-
-    public void addTemporaryEntry(IPredicate entry) {
+    public void addTemporaryEntry(Thing entry) {
         tempEntries.add(entry);
     }
 

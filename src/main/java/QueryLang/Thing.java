@@ -11,6 +11,18 @@ public class Thing implements ITerm {
         this.chance = chance;
     }
 
+    public Thing(String name, int value) {
+        this.name = name;
+        this.value = value;
+        this.chance = 0.0f;
+    }
+
+    public Thing(String name) {
+        this.name = name;
+        this.value = 0;
+        this.chance = 0.0f;
+    }
+
     public String getName() {
         return name;
     }
@@ -24,11 +36,9 @@ public class Thing implements ITerm {
     public void setName(String name) {
         this.name = name;
     }
-
     public void setValue(int value) {
         this.value = value;
     }
-
     public void setChance(float chance) {
         this.chance = chance;
     }
