@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# The Maven wrapper scripts need the line endings their shells expect
+mvnw text eol=lf
+*.cmd text eol=crlf
