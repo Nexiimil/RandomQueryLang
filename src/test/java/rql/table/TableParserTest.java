@@ -16,7 +16,7 @@ class TableParserTest {
         Table table = TableParser.parse("loot", List.of("Sword;10;0.25", "Shield;5;0.75"));
 
         assertEquals("loot", table.name());
-        assertEquals(List.of(new Thing("Sword", 10, 0.25), new Thing("Shield", 5, 0.75)), table.things());
+        assertEquals(List.of(new Row("Sword", 10, 0.25), new Row("Shield", 5, 0.75)), table.rows());
     }
 
     @Test
@@ -51,7 +51,7 @@ class TableParserTest {
     void skipsBlankLinesAndTrimsFields() throws TableFormatException {
         Table table = TableParser.parse("loot", List.of(" Sword ; 3 ; 0.5 ", "", "   ", "Shield"));
 
-        assertEquals(List.of(new Thing("Sword", 3, 0.5), new Thing("Shield", 2, 0.5)), table.things());
+        assertEquals(List.of(new Row("Sword", 3, 0.5), new Row("Shield", 2, 0.5)), table.rows());
     }
 
     @Test
@@ -81,10 +81,10 @@ class TableParserTest {
     }
 
     private static List<Integer> values(Table table) {
-        return table.things().stream().map(Thing::value).toList();
+        return table.rows().stream().map(Row::value).toList();
     }
 
     private static List<Double> chances(Table table) {
-        return table.things().stream().map(Thing::chance).toList();
+        return table.rows().stream().map(Row::chance).toList();
     }
 }

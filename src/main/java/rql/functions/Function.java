@@ -7,10 +7,10 @@ import java.util.stream.Collectors;
 import rql.value.Type;
 import rql.value.Value;
 
-public interface Builtin {
+public interface Function {
     String name();
 
-    List<Param> params();
+    List<Parameter> params();
 
     Type returnType();
 
@@ -22,7 +22,11 @@ public interface Builtin {
 
     default String usage() {
         return name() + params().stream()
-                .map(param -> param.isOptional() ? "[" + param.name() + "]" : param.name())
+                .map(param -> switch (param.kind()) {
+                    case OPTIONAL -> "[" + param.name() + "]";
+                    case REPEATED -> "[" + param.name() + "...]";
+                    case REQUIRED, QUERY -> param.name();
+                })
                 .collect(Collectors.joining(", ", "(", ")"));
     }
 }

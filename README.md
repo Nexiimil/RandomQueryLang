@@ -33,14 +33,14 @@ Value is a pretty broad term, so to give you some ideas:
 - Cost of an item in a game
 - 
 
-You can make a table of things without any specified value, or any specified chance, but there are some rules for consistency:
+You can make a table of rows without any specified value, or any specified chance, but there are some rules for consistency:
 - The value of a thing without a specified value will be the position of the item in the table (how far down the table the item is, starting at 1 with the first thing, the same way `Pick` counts). The exception is a thing whose name is a whole number, which takes that number as its value, so a table of `1` to `6` works like a d6.
-- The chance of a thing being rolled will be equal amongst all things without a specified chance. If there is a table with 3 things, and the first has a chance of 0.5, the remaining 2 items will have a 0.25 chance (remaining 0.5 divided by the remaining 2 items)
+- The chance of a thing being rolled will be equal amongst all rows without a specified chance. If there is a table with 3 rows, and the first has a chance of 0.5, the remaining 2 items will have a 0.25 chance (remaining 0.5 divided by the remaining 2 items)
 - To give a thing a chance but no value, leave the value empty, like `Potion;;0.5`.
 - Blank lines are ignored.
-- A table is rejected if its chances add up to more than 1, or add up to exactly 1 while some things have no chance (those things could never be rolled).
+- A table is rejected if its chances add up to more than 1, or add up to exactly 1 while some rows have no chance (those rows could never be rolled).
 
-This allows the Drop_ commands to work, making sure there is always a method of prioritising things to drop, and allows for faster creation of tables!
+This allows the Drop_ commands to work, making sure there is always a method of prioritising rows to drop, and allows for faster creation of tables!
 
 ## Understanding Queries
 Queries are performed in either verbose or symbolic predicates (meaning parts of a sentance). The tables you create/use act as the 'knowledge base' of these predicates, allowing you to have a result. The goal is to be able to execute any roll20 dice roll syntax, as well as 
@@ -71,10 +71,48 @@ Mistakes that would fail no matter what gets rolled, such as a table that doesn'
 
 Function names ignore case, so `roll` works as well as `Roll`. Table names must match exactly.
 
+### Using a Result More Than Once
+Every roll in a query is rolled separately, so `Subtract(Sum(4d6), Sum(4d6))` rolls 4d6 twice. To roll something once and use it in several places, give it a name with `Let(name, value, query)`. Inside `query`, the name stands for that same result every time:
+
+```
+Let(con, Sum(DropLowest(4d6)), Join(Label("Constitution", con), Label("Modifier", Divide(Subtract(con, 10), 2))))
+```
+
+- A name only means something inside the query it was given for. Like a table name, it must match exactly, and it hides a table with the same name.
+- Dice given a name are rolled once, so in `Let(x, 4d6, ...)` every use of `x` is the same four dice.
+- `Repeat` runs its whole query again each time, so a `Let` inside it rolls again for every repeat.
+
+### Rolling a Character
+With a `Classes` table whose rows are worth their hit die (like `Fighter;10`), a skills table for each class (like `Fighter Skills`), and a `Flaws` table, this rolls a level 1 character. It's split across lines here to be easier to read, but is typed on one line:
+
+```
+Let(class, Roll(Classes), Let(con, Sum(DropLowest(4d6)), Join(
+    Label("Class", class),
+    Label("Constitution", con),
+    Label("Other ability scores", Repeat(Sum(DropLowest(4d6)), 5)),
+    Label("Hit points", Add(class, Divide(Subtract(con, 10), 2))),
+    Label("Skill", Draw(Concat(class, " Skills"), 2)),
+    Label("Flaw", Roll(Flaws)),
+    Label("Gold", Multiply(5d4, 10)))))
+```
+
 ## Planned Query Elements
 Elements in bold have been implemented
 - **Roll(Table/Dice table, [Number x])**: randomly selects x number items from the provided table, rolling separately for each one, so the same thing can come up more than once. If x is not provided, defaults to 1. Rolling dice x times gives a row for every die, so `Roll(4d6, 2)` gives 8 rows.
 - **Pick(Table table, Number x)**: selects the xth item from the top of the table, so `Pick(table, 1)` is the first thing.
-- **DropLowest(Table table, [Number x])**: returns the rest of the table, having removed the lowest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the lowest than x, x number of things are dropped at random.
-- **DropHighest(Table table, [Number x])**: returns the rest of the table, having removed the highest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the highest than x, x number of things are dropped at random.
+- **DropLowest(Table table, [Number x])**: returns the rest of the table, having removed the lowest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the lowest than x, x number of rows are dropped at random.
+- **DropHighest(Table table, [Number x])**: returns the rest of the table, having removed the highest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the highest than x, x number of rows are dropped at random.
 - **Sum(Table table)**: adds up the values of every thing in the table.
+- **Draw(Table table, [Number x])**: like Roll, but a row can't come up more than once, so `Draw(Skills, 2)` gives two different skills. Rows with no chance are never drawn, and asking for more rows than can be drawn is an error. If x is not provided, defaults to 1.
+- **KeepLowest(Table table, [Number x])**: returns the lowest valued x rows of the table, in their original order. If x is not provided, defaults to 1. Ties are kept at random.
+- **KeepHighest(Table table, [Number x])**: returns the highest valued x rows of the table, in their original order. If x is not provided, defaults to 1. Ties are kept at random.
+- **Count(Table table)**: the number of rows in the table.
+- **Add(Number number, Number amount)**, **Subtract(Number number, Number amount)** and **Multiply(Number number, Number times)**: arithmetic, like `Multiply(5d4, 10)`.
+- **Divide(Number number, Number divisor)**: divides and rounds down, so `Divide(-1, 2)` is -1. This is how ability modifiers work: `Divide(Subtract(score, 10), 2)`.
+- **Dice(Number count, Number sides)**: makes dice from numbers, so `Dice(1, class)` is a die with as many sides as `class` is worth.
+- **Repeat(Query query, Number x)**: runs the query x times, rolling again each time, and puts every result into one table. Numbers and text become a row each, and tables and dice add all their rows, so `Repeat(Sum(DropLowest(4d6)), 6)` gives six ability scores.
+- **Let(Name name, Value value, Query query)**: gives a result a name to use inside the query. See Using a Result More Than Once.
+- **Name(Table row)**: the name of the row in a one-row table, as text.
+- **Concat(Text text, [Text more...])**: joins text together. Text can name a table, so `Roll(Concat(class, " Skills"))` rolls on the skills table for a class.
+- **Label(Text label, Value value)**: labels a result. A number becomes a row named after the label, like `Strength (15)`. Text, and each row of a table, get the label in front of their name, like `Class: Fighter (10)`.
+- **Join(Table table, [Table more...])**: puts the rows of the tables together into one table, in order.

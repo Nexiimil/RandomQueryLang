@@ -23,6 +23,6 @@ class TableLoaderTest {
 
         Table table = TableLoader.load(files.getFirst());
         assertEquals("loot", table.name());
-        assertEquals(List.of(new Thing("Sword", 10, 0.5), new Thing("Shield", 5, 0.5)), table.things());
+        assertEquals(List.of(new Row("Sword", 10, 0.5), new Row("Shield", 5, 0.5)), table.rows());
     }
 }

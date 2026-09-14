@@ -10,32 +10,33 @@ import java.util.List;
 public final class TableParser {
     private static final double EPSILON = 1e-9;
 
-    private record Row(String name, Integer value, Double chance) {
+    /** A row as written in the file, where the value and chance may be missing. */
+    private record ParsedRow(String name, Integer value, Double chance) {
     }
 
     private TableParser() {
     }
 
     public static Table parse(String tableName, List<String> lines) throws TableFormatException {
-        List<Row> rows = new ArrayList<>();
+        List<ParsedRow> parsed = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).trim();
             if (!line.isEmpty()) {
-                rows.add(parseRow(tableName, i + 1, line));
+                parsed.add(parseRow(tableName, i + 1, line));
             }
         }
 
-        double[] chances = resolveChances(tableName, rows);
-        List<Thing> things = new ArrayList<>();
-        for (int i = 0; i < rows.size(); i++) {
-            Row row = rows.get(i);
-            int value = row.value() != null ? row.value() : defaultValue(row.name(), i);
-            things.add(new Thing(row.name(), value, chances[i]));
+        double[] chances = resolveChances(tableName, parsed);
+        List<Row> rows = new ArrayList<>();
+        for (int i = 0; i < parsed.size(); i++) {
+            ParsedRow row = parsed.get(i);
+            int value = row.value() != null ? row.value() : Row.defaultValue(row.name(), i + 1);
+            rows.add(new Row(row.name(), value, chances[i]));
         }
-        return new Table(tableName, things);
+        return new Table(tableName, rows);
     }
 
-    private static Row parseRow(String tableName, int lineNumber, String line)
+    private static ParsedRow parseRow(String tableName, int lineNumber, String line)
             throws TableFormatException {
         String[] fields = line.split(";", -1);
         if (fields.length > 3) {
@@ -74,15 +75,15 @@ public final class TableParser {
             }
         }
 
-        return new Row(name, value, chance);
+        return new ParsedRow(name, value, chance);
     }
 
     // Rows without a chance split whatever the rows with one leave over, equally.
-    private static double[] resolveChances(String tableName, List<Row> rows)
+    private static double[] resolveChances(String tableName, List<ParsedRow> rows)
             throws TableFormatException {
         double specifiedTotal = 0;
         int unspecifiedCount = 0;
-        for (Row row : rows) {
+        for (ParsedRow row : rows) {
             if (row.chance() == null) {
                 unspecifiedCount++;
             } else {
@@ -106,15 +107,5 @@ public final class TableParser {
             chances[i] = chance != null ? chance : remainder / unspecifiedCount;
         }
         return chances;
-    }
-
-    // A row named with a whole number is worth that number, so a table of 1 to 6 acts like a die.
-    // Any other row is worth its position from the top of the table, starting at 1 like Pick does.
-    private static int defaultValue(String name, int index) {
-        try {
-            return Integer.parseInt(name);
-        } catch (NumberFormatException e) {
-            return index + 1;
-        }
     }
 }

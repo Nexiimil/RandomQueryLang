@@ -7,11 +7,11 @@ import rql.value.NumberValue;
 import rql.value.Type;
 import rql.value.Value;
 
-/** Adds up the values of every row in a table. */
-public final class Sum implements Function {
+/** Counts the rows in a table. */
+public final class Count implements Function {
     @Override
     public String name() {
-        return "Sum";
+        return "Count";
     }
 
     @Override
@@ -26,10 +26,6 @@ public final class Sum implements Function {
 
     @Override
     public Value call(Arguments args, RandomGenerator random) {
-        long total = args.table(0).total();
-        if (total < Integer.MIN_VALUE || total > Integer.MAX_VALUE) {
-            throw args.error(0, "the total " + total + " is too large");
-        }
-        return new NumberValue((int) total);
+        return new NumberValue(args.table(0).size());
     }
 }

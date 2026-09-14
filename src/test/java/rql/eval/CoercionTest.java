@@ -11,8 +11,8 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 import rql.QueryException;
+import rql.table.Row;
 import rql.table.Table;
-import rql.table.Thing;
 import rql.value.DiceValue;
 import rql.value.NumberValue;
 import rql.value.TableValue;
@@ -39,7 +39,7 @@ class CoercionTest {
 
     @Test
     void aTableWithOneRowCanBeUsedAsText() {
-        Table table = new Table("loot", List.of(new Thing("Sword", 10, 1)));
+        Table table = new Table("loot", List.of(new Row("Sword", 10, 1)));
 
         assertEquals(new TextValue("Sword"), Coercion.convert(Type.TEXT, new TableValue(table), environment, 0));
     }

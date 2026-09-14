@@ -2,20 +2,20 @@ package rql.table;
 
 import java.util.List;
 
-public record Table(String name, List<Thing> things) {
+public record Table(String name, List<Row> rows) {
     public Table {
-        things = List.copyOf(things);
+        rows = List.copyOf(rows);
     }
 
     public int size() {
-        return things.size();
+        return rows.size();
     }
 
     public long total() {
-        return things.stream().mapToLong(Thing::value).sum();
+        return rows.stream().mapToLong(Row::value).sum();
     }
 
-    public Table withThings(List<Thing> newThings) {
-        return new Table(name, newThings);
+    public Table withRows(List<Row> newRows) {
+        return new Table(name, newRows);
     }
 }

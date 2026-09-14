@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.random.RandomGenerator;
 
+import rql.table.Row;
 import rql.table.Table;
-import rql.table.Thing;
 import rql.value.DiceValue;
 import rql.value.NumberValue;
 import rql.value.TableValue;
@@ -16,17 +16,17 @@ import rql.value.Value;
  * Rolls on a table, or rolls dice, {@code count} times. Every roll is separate, so the same row can come
  * up more than once.
  */
-public final class Roll implements Builtin {
+public final class Roll implements Function {
     @Override
     public String name() {
         return "Roll";
     }
 
     @Override
-    public List<Param> params() {
+    public List<Parameter> params() {
         return List.of(
-                Param.required("table", Type.TABLE, Type.DICE),
-                Param.optional("count", Type.NUMBER, new NumberValue(1)));
+                Parameter.required("table", Type.TABLE, Type.DICE),
+                Parameter.optional("count", Type.NUMBER, new NumberValue(1)));
     }
 
     @Override
@@ -46,40 +46,40 @@ public final class Roll implements Builtin {
 
         Table table = args.table(0);
         if (count == 0) {
-            return new TableValue(table.withThings(List.of()));
+            return new TableValue(table.withRows(List.of()));
         }
 
         // Chances are treated as weights, so a table with rows dropped from it still rolls fairly.
-        double totalChance = table.things().stream().mapToDouble(Thing::chance).sum();
+        double totalChance = table.rows().stream().mapToDouble(Row::chance).sum();
         if (totalChance <= 0) {
             throw args.error(0, table.name() + " has no rows that can be rolled");
         }
 
-        List<Thing> rolled = new ArrayList<>(count);
+        List<Row> rolled = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             rolled.add(rollOnce(table, totalChance, random));
         }
-        return new TableValue(table.withThings(rolled));
+        return new TableValue(table.withRows(rolled));
     }
 
     private static Value rollDice(DiceValue dice, int count, RandomGenerator random) {
-        List<Thing> faces = new ArrayList<>();
+        List<Row> faces = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            faces.addAll(dice.roll(random).things());
+            faces.addAll(dice.roll(random).rows());
         }
         return new TableValue(new Table(dice.display(), faces));
     }
 
-    private static Thing rollOnce(Table table, double totalChance, RandomGenerator random) {
+    private static Row rollOnce(Table table, double totalChance, RandomGenerator random) {
         double target = random.nextDouble(totalChance);
         double cumulative = 0;
-        Thing lastRollable = null;
-        for (Thing thing : table.things()) {
-            if (thing.chance() > 0) {
-                cumulative += thing.chance();
-                lastRollable = thing;
+        Row lastRollable = null;
+        for (Row row : table.rows()) {
+            if (row.chance() > 0) {
+                cumulative += row.chance();
+                lastRollable = row;
                 if (target < cumulative) {
-                    return thing;
+                    return row;
                 }
             }
         }

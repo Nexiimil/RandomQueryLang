@@ -12,11 +12,11 @@ public record TableValue(Table table) implements Value {
 
     @Override
     public String display() {
-        if (table.things().isEmpty()) {
+        if (table.size() == 0) {
             return "(no rows)";
         }
-        return table.things().stream()
-                .map(thing -> thing.name() + " (" + thing.value() + ")")
+        return table.rows().stream()
+                .map(row -> row.name() + " (" + row.value() + ")")
                 .collect(Collectors.joining(System.lineSeparator()));
     }
 }

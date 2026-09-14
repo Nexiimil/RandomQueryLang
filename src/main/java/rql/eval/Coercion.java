@@ -49,7 +49,7 @@ final class Coercion {
                 }
             }
             case DiceValue dice -> total(dice.roll(environment.random()), position);
-            case TableValue table when table.table().size() == 1 -> table.table().things().getFirst().value();
+            case TableValue table when table.table().size() == 1 -> table.table().rows().getFirst().value();
             case TableValue table -> throw new QueryException("expected a number but got a table with "
                     + table.table().size() + " rows (use Sum to add them up)", position);
         };
@@ -60,7 +60,7 @@ final class Coercion {
             case TextValue text -> text.value();
             case NumberValue number -> Integer.toString(number.value());
             case DiceValue dice -> Integer.toString(total(dice.roll(environment.random()), position));
-            case TableValue table when table.table().size() == 1 -> table.table().things().getFirst().name();
+            case TableValue table when table.table().size() == 1 -> table.table().rows().getFirst().name();
             case TableValue table -> throw new QueryException(
                     "expected text but got a table with " + table.table().size() + " rows", position);
         };
