@@ -1,4 +1,4 @@
-package rql.value;
+package rql.node;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,14 +7,20 @@ import java.util.random.RandomGenerator;
 import rql.table.Table;
 import rql.table.Thing;
 
-/** Dice such as 4d6. They're rolled fresh each time they're used, rather than kept as a table of faces. */
-public record DiceValue(int count, int sides) implements Value {
-    @Override
-    public Type type() {
-        return Type.DICE;
+/**
+ * Dice such as 4d6, described rather than rolled. Holding the description means a node can roll them
+ * as many times as it needs to, and that nothing is rolled until something asks.
+ */
+public record Dice(int count, int sides) {
+    public Dice {
+        if (count < 1) {
+            throw new IllegalArgumentException("can't roll " + count + " dice");
+        }
+        if (sides < 1) {
+            throw new IllegalArgumentException("a die needs at least 1 side");
+        }
     }
 
-    @Override
     public String display() {
         return (count == 1 ? "" : Integer.toString(count)) + "d" + sides;
     }

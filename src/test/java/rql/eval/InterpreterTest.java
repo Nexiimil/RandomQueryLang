@@ -1,7 +1,6 @@
 package rql.eval;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,12 +17,12 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import rql.QueryException;
+import rql.node.Context;
+import rql.node.ValueType;
 import rql.table.Table;
 import rql.table.TableFormatException;
 import rql.table.TableParser;
 import rql.table.Thing;
-import rql.value.NumberValue;
-import rql.value.TableValue;
 
 class InterpreterTest {
     private Interpreter interpreter;
@@ -35,7 +34,7 @@ class InterpreterTest {
                 "weighted", TableParser.parse("weighted", List.of("Never;0;0", "Always")),
                 "mostly", TableParser.parse("mostly", List.of("A;;0.9", "B")),
                 "ties", TableParser.parse("ties", List.of("A;1", "B;1", "C;2")));
-        interpreter = new Interpreter(new Environment(tables, new Random(1234)));
+        interpreter = new Interpreter(new Context(tables, new Random(1234)));
     }
 
     @Test
@@ -198,7 +197,7 @@ class InterpreterTest {
     }
 
     private List<Thing> things(String query) {
-        return assertInstanceOf(TableValue.class, interpreter.run(query)).table().things();
+        return interpreter.run(query).as(ValueType.TABLE).things();
     }
 
     private List<String> rows(String query) {
@@ -206,7 +205,7 @@ class InterpreterTest {
     }
 
     private int number(String query) {
-        return assertInstanceOf(NumberValue.class, interpreter.run(query)).value();
+        return interpreter.run(query).as(ValueType.NUMBER);
     }
 
     private QueryException error(String query) {

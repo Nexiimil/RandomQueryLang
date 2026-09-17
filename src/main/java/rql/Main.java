@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.random.RandomGenerator;
 
-import rql.eval.Environment;
 import rql.eval.Interpreter;
+import rql.node.Context;
 import rql.table.Table;
 import rql.table.TableFormatException;
 import rql.table.TableLoader;
@@ -32,7 +32,7 @@ public class Main {
         System.out.println("Dice are written like d20 or 4d6.");
         System.out.println("Enter a query, e.g. Sum(DropLowest(4d6)), or exit to quit.");
 
-        Interpreter interpreter = new Interpreter(new Environment(tables, RandomGenerator.getDefault()));
+        Interpreter interpreter = new Interpreter(new Context(tables, RandomGenerator.getDefault()));
         Scanner scanner = new Scanner(System.in);
         while (true) {
             System.out.print("> ");
