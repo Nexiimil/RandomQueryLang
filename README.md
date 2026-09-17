@@ -5,7 +5,7 @@ A Roll-The-Dice Query Language for video games and table-tops.
 The idea of this module is to be able to query a set of tables, much like you would when making a D&D character with d8 flaws, 6 lots of 4d6 frop lowest attributes, etc. all in queries that you can save and use to generate whatever you want on the fly. Just make a set of tables to roll on, and get familiar with the syntax of the query language, and in theory, you should be able to generate some pretty thorough stuff. i'll provide some real-world examples of useful queries to use alongside this as a command-line tool, but I intend to use this for roguelike video games in the future too!
 
 ## Building and Running
-You need Java 21 or newer. Maven doesn't need to be installed, as the wrapper downloads it the first time it runs.
+You need Java 25 or newer. Maven doesn't need to be installed, as the wrapper downloads it the first time it runs.
 
 ```
 ./mvnw package                        # compile, run the tests and build target/rql.jar
