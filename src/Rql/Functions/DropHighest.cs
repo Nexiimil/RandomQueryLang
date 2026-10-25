@@ -13,5 +13,6 @@ public sealed record DropHighest(Node<Table> Table, [Default(1)] Node<decimal> C
     /// <summary>Ties between equal rows are broken at random, so even a settled table can't be dropped early.</summary>
     public override bool Rolls => true;
 
+    /// <inheritdoc/>
     public override Table Evaluate(Context context) => Drops.Drop(Table, Count, lowest: false, context);
 }

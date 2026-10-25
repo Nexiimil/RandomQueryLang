@@ -47,13 +47,16 @@ public static class Coerce
                 $"nothing converts {ValueTypes.Describe(source.ValueType)} to {ValueTypes.Describe(wanted)}");
     }
 
+    /// <summary>The same as <see cref="To(Type, INode)"/>, for when the type wanted is known.</summary>
     public static Node<T> To<T>(INode source) where T : notnull => (Node<T>)To(typeof(T), source);
 
     /// <summary>Text that spells a number, like <c>Roll(d6, "3")</c>.</summary>
-    public sealed record TextToNumber(Node<string> Source) : Node<decimal>
+    internal sealed record TextToNumber(Node<string> Source) : Node<decimal>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override decimal Evaluate(Context context)
         {
             string text = Source.Evaluate(context);
@@ -64,10 +67,12 @@ public static class Coerce
     }
 
     /// <summary>A table of one row, standing in for that row's value.</summary>
-    public sealed record TableToNumber(Node<Table> Source) : Node<decimal>
+    internal sealed record TableToNumber(Node<Table> Source) : Node<decimal>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override decimal Evaluate(Context context)
         {
             Table table = Source.Evaluate(context);
@@ -79,28 +84,35 @@ public static class Coerce
     }
 
     /// <summary>Dice standing in for a number, rolled and added up, or with a success target, the successes counted.</summary>
-    public sealed record DiceToNumber(Node<Dice> Source) : Node<decimal>
+    internal sealed record DiceToNumber(Node<Dice> Source) : Node<decimal>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override bool Rolls => true;
 
+        /// <inheritdoc/>
         public override decimal Evaluate(Context context) => context.Roll(Source.Evaluate(context), Source).Total;
     }
 
     /// <summary>A number written where text was wanted.</summary>
-    public sealed record NumberToText(Node<decimal> Source) : Node<string>
+    internal sealed record NumberToText(Node<decimal> Source) : Node<string>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override string Evaluate(Context context) => Numbers.Display(Source.Evaluate(context));
     }
 
     /// <summary>A table of one row, standing in for that row's name.</summary>
-    public sealed record TableToText(Node<Table> Source) : Node<string>
+    internal sealed record TableToText(Node<Table> Source) : Node<string>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override string Evaluate(Context context)
         {
             Table table = Source.Evaluate(context);
@@ -111,21 +123,26 @@ public static class Coerce
     }
 
     /// <summary>Dice standing in for text, rolled and added up.</summary>
-    public sealed record DiceToText(Node<Dice> Source) : Node<string>
+    internal sealed record DiceToText(Node<Dice> Source) : Node<string>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override bool Rolls => true;
 
+        /// <inheritdoc/>
         public override string Evaluate(Context context) =>
             context.Roll(Source.Evaluate(context), Source).Total.ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>Text naming a table, which is how a name with spaces is written.</summary>
-    public sealed record TextToTable(Node<string> Source) : Node<Table>
+    internal sealed record TextToTable(Node<string> Source) : Node<Table>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override Table Evaluate(Context context)
         {
             string name = Source.Evaluate(context);
@@ -134,12 +151,15 @@ public static class Coerce
     }
 
     /// <summary>Dice used as a table, giving a row per kept die worth the number it landed on.</summary>
-    public sealed record DiceToTable(Node<Dice> Source) : Node<Table>
+    internal sealed record DiceToTable(Node<Dice> Source) : Node<Table>
     {
+        /// <inheritdoc/>
         public override IReadOnlyList<INode> Children => [Source];
 
+        /// <inheritdoc/>
         public override bool Rolls => true;
 
+        /// <inheritdoc/>
         public override Table Evaluate(Context context) => context.Roll(Source.Evaluate(context), Source).AsTable();
     }
 }

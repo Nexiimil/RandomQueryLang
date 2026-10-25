@@ -6,5 +6,6 @@ public sealed class QueryException(string message, int position) : Exception(mes
     /// <summary>Where a problem has no place in the text, such as a default the query never wrote.</summary>
     public const int Nowhere = -1;
 
+    /// <summary>Where in the query text the problem is, counting from 0, or <see cref="Nowhere"/>.</summary>
     public int Position { get; } = position;
 }

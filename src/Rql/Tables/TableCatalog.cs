@@ -17,6 +17,7 @@ namespace Rql.Tables;
 /// </remarks>
 public sealed class TableCatalog : IReadOnlyDictionary<string, Table>
 {
+    /// <summary>What goes between the folders and the table's own name.</summary>
     public const char Separator = '.';
 
     /// <summary>What <see cref="IsValidName"/> asks of each folder and table name, for saying so.</summary>
@@ -51,6 +52,7 @@ public sealed class TableCatalog : IReadOnlyDictionary<string, Table>
         && part.All(c => char.IsLetterOrDigit(c) || c == '_')
         && !Syntax.DiceNotation.IsDice(part);
 
+    /// <summary>A catalog with no tables in it.</summary>
     public static TableCatalog Empty { get; } = new([]);
 
     /// <summary>The table a query means by <paramref name="name"/>, or null with why there isn't one.</summary>
@@ -116,12 +118,25 @@ public sealed class TableCatalog : IReadOnlyDictionary<string, Table>
         full.Length > name.Length && full.EndsWith(name, StringComparison.Ordinal)
         && full[full.Length - name.Length - 1] == Separator;
 
+    /// <summary>The table with exactly this full name; use <see cref="Find"/> to go by the end of it.</summary>
+    /// <exception cref="KeyNotFoundException">No table has this full name.</exception>
     public Table this[string key] => tables[key];
+
+    /// <summary>Every table's full name.</summary>
     public IEnumerable<string> Keys => tables.Keys;
+
+    /// <inheritdoc/>
     public IEnumerable<Table> Values => tables.Values;
+
+    /// <inheritdoc/>
     public int Count => tables.Count;
+
+    /// <summary>Whether there's a table with exactly this full name.</summary>
     public bool ContainsKey(string key) => tables.ContainsKey(key);
+
+    /// <summary>The table with exactly this full name, if there is one.</summary>
     public bool TryGetValue(string key, [MaybeNullWhen(false)] out Table value) => tables.TryGetValue(key, out value);
+    /// <inheritdoc/>
     public IEnumerator<KeyValuePair<string, Table>> GetEnumerator() => ((IEnumerable<KeyValuePair<string, Table>>)tables).GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 }

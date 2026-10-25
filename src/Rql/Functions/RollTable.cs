@@ -7,8 +7,10 @@ namespace Rql.Functions;
 [Function("Roll", Description = "Rolls on a table count times, so the same row can come up more than once.")]
 public sealed record RollTable(Node<Table> Table, [Default(1)] Node<decimal> Count) : Function<Table>
 {
+    /// <inheritdoc/>
     public override bool Rolls => true;
 
+    /// <inheritdoc/>
     public override Table Evaluate(Context context)
     {
         int times = Numbers.Whole(Count.Evaluate(context), Count, "times to roll");

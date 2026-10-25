@@ -192,6 +192,14 @@ public class InterpreterTest
     }
 
     [Fact]
+    public void AQueryOfSeveralRollsPrintsAsItsDisplay()
+    {
+        QueryResult result = interpreter.Run("Attack: 1d1 + 5; Damage: 2d1 + 3");
+
+        Assert.Equal(result.Display(), result.ToString());
+    }
+
+    [Fact]
     public void AMistakeInAnyRollStopsTheWholeQueryBeforeRolling()
     {
         Assert.Equal(17, Error("Roll(loot); Roll(nope)").Position);

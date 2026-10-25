@@ -10,7 +10,10 @@ namespace Rql.Nodes;
 public static class Numbers
 {
     /// <summary>A number that has to be whole, blaming <paramref name="blame"/> if it isn't.</summary>
+    /// <param name="value">The number to check.</param>
+    /// <param name="blame">The node the number came from, which the error points at.</param>
     /// <param name="what">What the number is for, as in "expected a whole number of {what}".</param>
+    /// <exception cref="EvalException"><paramref name="value"/> isn't whole, or doesn't fit in an <see cref="int"/>.</exception>
     public static int Whole(decimal value, INode blame, string what)
     {
         if (value != decimal.Truncate(value))

@@ -7,14 +7,20 @@ namespace Rql.Nodes;
 /// <summary>How a comparison in dice notation reads a face. Roll20's <c>&gt;</c> and <c>&lt;</c> include the number itself.</summary>
 public enum CompareKind
 {
+    /// <summary>Exactly the number, written plain or with <c>=</c>.</summary>
     Equal,
+
+    /// <summary>The number or higher, written <c>&gt;</c>.</summary>
     AtLeast,
+
+    /// <summary>The number or lower, written <c>&lt;</c>.</summary>
     AtMost,
 }
 
 /// <summary>A condition on a face, such as the <c>&gt;5</c> in <c>d6!&gt;5</c>: a face of at least 5.</summary>
 public sealed record Comparison(CompareKind Kind, int Value)
 {
+    /// <summary>Whether <paramref name="face"/> meets the condition.</summary>
     public bool Matches(int face) => Kind switch
     {
         CompareKind.AtLeast => face >= Value,
@@ -31,6 +37,7 @@ public sealed record Comparison(CompareKind Kind, int Value)
     };
 }
 
+/// <summary>The way a die explodes, which decides what an exploding roll adds.</summary>
 public enum ExplodeKind
 {
     /// <summary><c>!</c>: each die that explodes adds another die.</summary>
@@ -52,6 +59,7 @@ public sealed record Reroll(Comparison When, bool Once = false);
 /// <summary>Keeping or dropping the highest or lowest <c>Amount</c> dice.</summary>
 public sealed record KeepDrop(bool Keep, bool Highest, int Amount)
 {
+    /// <summary>How it's written, like <c>kh3</c> or <c>dl1</c>.</summary>
     public string Display() => (Keep ? "k" : "d") + (Highest ? "h" : "l") + Amount.ToString(CultureInfo.InvariantCulture);
 }
 
@@ -61,15 +69,22 @@ public sealed record KeepDrop(bool Keep, bool Highest, int Amount)
 /// </summary>
 public sealed record Match(bool Count, int MinimumSet = 2, Comparison? Only = null)
 {
+    /// <summary>How it's written, like <c>m</c>, <c>mt3</c> or <c>m&gt;4</c>, leaving out a minimum set of 2.</summary>
     public string Display() =>
         (Count ? "mt" : "m") + (MinimumSet == 2 ? "" : MinimumSet.ToString(CultureInfo.InvariantCulture))
         + (Only is null ? "" : Only.Kind == CompareKind.Equal ? "=" + Only.Display() : Only.Display());
 }
 
+/// <summary>The order rolled dice are shown in, from <c>s</c> or <c>sd</c>. It never changes the total.</summary>
 public enum DiceSort
 {
+    /// <summary>In the order they were rolled.</summary>
     None,
+
+    /// <summary><c>s</c>: lowest first.</summary>
     Ascending,
+
+    /// <summary><c>sd</c>: highest first.</summary>
     Descending,
 }
 
@@ -90,6 +105,7 @@ public sealed record Dice
     public const int MostSides = 1000;
 
     /// <param name="count">How many dice, which can be none, as Roll20 allows for <c>0d6</c> in a group.</param>
+    /// <param name="sides">How many sides each die has, from 1 to <see cref="MostSides"/>.</param>
     public Dice(int count, int sides)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);
@@ -102,20 +118,28 @@ public sealed record Dice
     /// <summary>Fate (Fudge) dice, <c>dF</c>, whose faces are -1, 0 and 1.</summary>
     public static Dice FateDice(int count) => new(count, 3) { Fate = true };
 
+    /// <summary>How many dice are rolled, before any explode.</summary>
     public int Count { get; }
 
+    /// <summary>How many sides each die has; 3 for Fate dice.</summary>
     public int Sides { get; }
 
+    /// <summary>Whether these are Fate dice, <c>dF</c>, rolling -1, 0 or 1.</summary>
     public bool Fate { get; init; }
 
+    /// <summary>The lowest face a die can roll: 1, or -1 for Fate dice.</summary>
     public int LowestFace => Fate ? -1 : 1;
 
+    /// <summary>The highest face a die can roll: the number of sides, or 1 for Fate dice.</summary>
     public int HighestFace => Fate ? 1 : Sides;
 
+    /// <summary>Exploding, <c>!</c>, <c>!!</c> or <c>!p</c>, or null if the dice don't.</summary>
     public Explode? Explode { get; init; }
 
+    /// <summary>Rerolls, <c>r</c> and <c>ro</c>, in the order they were written. A face is rerolled if any of them matches.</summary>
     public IReadOnlyList<Reroll> Rerolls { get; init; } = [];
 
+    /// <summary>Keeping or dropping, like <c>kh3</c>, or null to keep every die.</summary>
     public KeepDrop? KeepDrop { get; init; }
 
     /// <summary>Counting dice that match as successes, making the total how many did.</summary>
@@ -124,6 +148,7 @@ public sealed record Dice
     /// <summary>Taking a success away for each die that matches. Only meaningful with <see cref="Success"/>.</summary>
     public Comparison? Failure { get; init; }
 
+    /// <summary>The order the dice are shown in once rolled.</summary>
     public DiceSort Sort { get; init; }
 
     /// <summary>
@@ -135,6 +160,7 @@ public sealed record Dice
     /// <summary>Faces that count as a critical failure, <c>cf</c>. With none given, the lowest face is one.</summary>
     public IReadOnlyList<Comparison> CriticalFailure { get; init; } = [];
 
+    /// <summary>Matching, <c>m</c> or <c>mt</c>, or null if the dice don't look for sets.</summary>
     public Match? Match { get; init; }
 
     /// <summary>A label written after the dice, like the <c>Fire</c> in <c>2d6[Fire]</c>, shown beside the roll.</summary>
@@ -216,11 +242,14 @@ public sealed record Dice
         return text.ToString();
     }
 
+    /// <summary>The dice as written, the same as <see cref="Display"/>.</summary>
     public override string ToString() => Display();
 
     // A record compares lists by reference, so dice written the same way need telling that they are.
+    /// <summary>Whether <paramref name="other"/> is written the same way, which makes it the same dice.</summary>
     public bool Equals(Dice? other) => other is not null && Display() == other.Display();
 
+    /// <inheritdoc/>
     public override int GetHashCode() => Display().GetHashCode(StringComparison.Ordinal);
 
     /// <exception cref="DiceRollException">The roll came to too many dice, or too large a total.</exception>
@@ -394,8 +423,10 @@ public sealed record Die(int Value)
     /// <summary>Left out by keeping or dropping.</summary>
     public bool Dropped { get; init; }
 
+    /// <summary>Kept and matching the success target. Only set when the dice have one.</summary>
     public bool Success { get; init; }
 
+    /// <summary>Kept and matching the failure target, so it takes away a success.</summary>
     public bool Failure { get; init; }
 
     /// <summary>A critical success: the highest face, or one matching <c>cs</c>. Only changes how it's shown.</summary>
@@ -409,11 +440,14 @@ public sealed record Die(int Value)
 }
 
 /// <summary>Dice that have been rolled: every die, kept or not, and what they came to.</summary>
+/// <param name="Dice">The dice that were rolled.</param>
+/// <param name="Faces">Every die, dropped ones included, in the order the dice ask to be shown.</param>
 /// <param name="Total">
 /// The kept dice added up, or with a success target, how many succeeded less how many failed.
 /// </param>
 public sealed record DiceRoll(Dice Dice, IReadOnlyList<Die> Faces, int Total)
 {
+    /// <summary>The dice that weren't dropped.</summary>
     public IEnumerable<Die> Kept => Faces.Where(die => !die.Dropped);
 
     /// <summary>The kept dice as a table, a row per die named and valued after its face.</summary>
@@ -445,10 +479,13 @@ public sealed record DiceRoll(Dice Dice, IReadOnlyList<Die> Faces, int Total)
 /// <summary>What's written after a group's closing brace: keeping or dropping, and counting successes.</summary>
 public sealed record GroupModifiers(KeepDrop? KeepDrop, Comparison? Success, Comparison? Failure)
 {
+    /// <summary>Nothing after the brace.</summary>
     public static GroupModifiers None { get; } = new(null, null, null);
 
+    /// <summary>Whether there's nothing to keep, drop or count. A failure target without a success target counts for nothing.</summary>
     public bool IsNone => KeepDrop is null && Success is null;
 
+    /// <summary>How it's written, like <c>kh1</c> or <c>&gt;21f1</c>, or empty if there's nothing.</summary>
     public string Display() =>
         (KeepDrop?.Display() ?? "") + (Success?.Display(equalsSign: true) ?? "") + (Failure is null ? "" : "f" + Failure.Display());
 }

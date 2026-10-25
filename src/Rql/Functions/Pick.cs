@@ -7,6 +7,7 @@ namespace Rql.Functions;
 [Function("Pick", Description = "Picks a row by counting down from the top of the table, starting at 1.")]
 public sealed record Pick(Node<Table> Table, Node<decimal> Row) : Function<Table>
 {
+    /// <inheritdoc/>
     public override Table Evaluate(Context context)
     {
         Table source = Table.Evaluate(context);

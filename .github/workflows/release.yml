@@ -1,0 +1,65 @@
+name: Release
+
+# Merging a pull request that gives the package a new version publishes that version: see "Changing the library"
+# in the README. Running this by hand retries a release that failed part way.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One release at a time, and never cut one short
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the tag and GitHub release
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the earlier release tags
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Finds the changelog's newest version and whether it's published yet
+      - name: Find the version to publish
+        id: changelog
+        run: dotnet run build/Changelog.cs -- release
+
+      - name: Add GitHub Packages as a source
+        if: steps.changelog.outputs.version != ''
+        run: |
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --name github --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text
+
+      - name: Build and test
+        if: steps.changelog.outputs.version != ''
+        run: |
+          dotnet build RandomQueryLang.slnx --configuration Release -p:Version=${{ steps.changelog.outputs.version }}
+          dotnet test RandomQueryLang.slnx --configuration Release --no-build
+
+      # With a baseline, package validation fails the release if the public API broke since that version
+      - name: Pack
+        if: steps.changelog.outputs.version != ''
+        run: |
+          dotnet pack src/Rql/Rql.csproj --configuration Release --output artifacts -p:Version=${{ steps.changelog.outputs.version }} \
+            ${{ steps.changelog.outputs.baseline && format('-p:PackageValidationBaselineVersion={0}', steps.changelog.outputs.baseline) || '' }}
+
+      # --skip-duplicate lets a retry get past a package that was already pushed
+      - name: Publish the package
+        if: steps.changelog.outputs.version != ''
+        run: dotnet nuget push "artifacts/*.nupkg" --source github --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
+
+      # Last, so the tag only exists once the package does
+      - name: Tag and make the GitHub release
+        if: steps.changelog.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: v${{ steps.changelog.outputs.version }}
+        run: gh release create "$VERSION" --target "$GITHUB_SHA" --title "$VERSION" --notes-file release-notes.md

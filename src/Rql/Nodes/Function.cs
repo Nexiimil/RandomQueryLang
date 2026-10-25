@@ -5,7 +5,7 @@ namespace Rql.Nodes;
 /// writing the record is all there is to declaring one:
 /// <code>
 /// [Function("Roll")]
-/// public sealed record RollTable(Node&lt;Table&gt; Table, [Default(1)] Node&lt;int&gt; Count) : Function&lt;Table&gt;
+/// public sealed record RollTable(Node&lt;Table&gt; Table, [Default(1)] Node&lt;decimal&gt; Count) : Function&lt;Table&gt;
 /// </code>
 /// <see cref="Signature"/> reads the constructor to learn how the function is written, so there is no
 /// parameter list kept beside the record to fall out of step with it.

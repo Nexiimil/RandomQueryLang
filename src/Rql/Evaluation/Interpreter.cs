@@ -20,6 +20,7 @@ public sealed class Interpreter(Context context, FunctionRegistry? functions = n
 
     private readonly FunctionRegistry functions = functions ?? FunctionRegistry.Builtins();
 
+    /// <summary>The tables queries can use and the random numbers their dice are rolled with.</summary>
     public Context Context => context;
 
     /// <summary>The queries <c>#Name</c> stands for, by name, ignoring case: a project's saved queries.</summary>

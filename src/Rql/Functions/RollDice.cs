@@ -10,8 +10,10 @@ namespace Rql.Functions;
 [Function("Roll", Description = "Rolls dice count times, giving a row for every die: Roll(4d6, 2) gives 8 rows.")]
 public sealed record RollDice(Node<Dice> Dice, [Default(1)] Node<decimal> Count) : Function<Table>
 {
+    /// <inheritdoc/>
     public override bool Rolls => true;
 
+    /// <inheritdoc/>
     public override Table Evaluate(Context context)
     {
         int times = Numbers.Whole(Count.Evaluate(context), Count, "times to roll");

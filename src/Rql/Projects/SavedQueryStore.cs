@@ -18,6 +18,7 @@ public sealed class SavedQueryStore(string path)
 
     private sealed record Document(List<SavedQuery> Queries);
 
+    /// <summary>The full path of the JSON file, which doesn't have to exist until a query is saved.</summary>
     public string Path { get; } = System.IO.Path.GetFullPath(path);
 
     /// <exception cref="InvalidDataException">The file isn't a list of saved queries.</exception>
@@ -39,6 +40,8 @@ public sealed class SavedQueryStore(string path)
         }
     }
 
+    /// <summary>The query saved under this name, ignoring case and spaces at either end, or null.</summary>
+    /// <exception cref="InvalidDataException">The file isn't a list of saved queries.</exception>
     public SavedQuery? Find(string name) => All().FirstOrDefault(query => Same(query.Name, name));
 
     /// <summary>
@@ -72,6 +75,8 @@ public sealed class SavedQueryStore(string path)
         Write(queries);
     }
 
+    /// <summary>Deletes the query saved under this name, ignoring case, if there is one.</summary>
+    /// <exception cref="InvalidDataException">The file isn't a list of saved queries.</exception>
     public void Delete(string name)
     {
         List<SavedQuery> queries = [.. All()];

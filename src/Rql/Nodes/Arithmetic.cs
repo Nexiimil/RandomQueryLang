@@ -6,8 +6,10 @@ namespace Rql.Nodes;
 /// </summary>
 public sealed record Arithmetic(string Operator, Node<decimal> Left, Node<decimal> Right) : Node<decimal>
 {
+    /// <inheritdoc/>
     public override IReadOnlyList<INode> Children => [Left, Right];
 
+    /// <inheritdoc/>
     public override decimal Evaluate(Context context)
     {
         decimal left = Left.Evaluate(context);
@@ -55,7 +57,9 @@ public sealed record Arithmetic(string Operator, Node<decimal> Left, Node<decima
 /// <summary>A number made negative, like <c>-d6</c>.</summary>
 public sealed record Negation(Node<decimal> Operand) : Node<decimal>
 {
+    /// <inheritdoc/>
     public override IReadOnlyList<INode> Children => [Operand];
 
+    /// <inheritdoc/>
     public override decimal Evaluate(Context context) => -Operand.Evaluate(context);
 }

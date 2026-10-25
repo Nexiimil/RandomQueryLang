@@ -52,6 +52,44 @@ dotnet run --project src/Rql.Cli -- import loot.csv bestiary.json --project DIR 
 - `src/Rql.Web`: the Blazor web app.
 - `src/Rql.Cli`: the command-line prompt.
 - `tests`: tests for the language (`Rql.Tests`) and the web app's pages (`Rql.Web.Tests`).
+- `build`: the changelog and version checks the workflows run, and the command that gives a change its version.
+
+### Using the language in a game
+`src/Rql` is published on its own as the `RandomQueryLang` NuGet package, to this repository's [GitHub Packages](https://github.com/Nexiimil?tab=packages&repo_name=RandomQueryLang) feed. Its [readme](src/Rql/README.md) shows how to run queries from code, and its [changelog](src/Rql/CHANGELOG.md) what each version changed. GitHub Packages asks for a sign-in even to download, so add the feed with a GitHub token that can `read:packages`:
+
+```
+dotnet nuget add source https://nuget.pkg.github.com/Nexiimil/index.json --name github --username YOUR_USERNAME --password YOUR_TOKEN
+dotnet add package RandomQueryLang
+```
+
+### Changing the library
+`main` only changes through pull requests, and a pull request can only be merged once these pass:
+
+- **build**: every project builds with no warnings and every test passes. Warnings count as errors, and that includes a public member of the library without a doc comment.
+- **versioning**: every pull request that changes the package (anything in `src/Rql` other than its changelog, or `Directory.Build.props`) makes a new version of it, written at the top of its [changelog](src/Rql/CHANGELOG.md), and merging it publishes that version.
+
+A pull request also has to be up to date with `main` before it can be merged, so two can't both claim the same version: the second one has to update, and its check then says which version it moves to.
+
+To give a change its version, write what changed for someone using the package under `## [Unreleased]` at the top of the changelog, in Added, Changed, Deprecated, Removed, Fixed or Security, then run:
+
+```
+dotnet run build/Changelog.cs -- version
+```
+
+That turns `[Unreleased]` into the next version, dated today, following [Semantic Versioning](https://semver.org):
+
+| The changes include | After 1.0 | Before 1.0 |
+|---|---|---|
+| Something breaking: a Removed section, or an entry starting with `**Breaking**` | major (1.4.2 → 2.0.0) | minor (0.4.2 → 0.5.0) |
+| Something added or deprecated | minor (1.4.2 → 1.5.0) | patch (0.4.2 → 0.4.3) |
+| Only fixes and other changes | patch (1.4.2 → 1.4.3) | patch |
+
+A version can be bigger than the changes need, never smaller: `version major` goes to 1.0.0 when the package is ready to call stable. If a version isn't allowed to break anything, the check also compares the public API with the last release and fails if anything was removed or changed in a way that breaks code using it, whatever the changelog says.
+
+### Releasing the package
+Merging a pull request with a new version releases it: the release workflow builds and tests it, checks its public API against the last release once more, publishes it to GitHub Packages, and tags the merge as `v<version>` with a GitHub release whose notes are that version's changelog entries. There's nothing to do by hand.
+
+If a release fails part way (GitHub Packages being down, say), run the **Release** workflow again from the Actions tab: it picks up the newest version that isn't published yet.
 
 ## Format of a Table
 A table is a file ending in `.RQLtable`, and the file name (without the extension) is the table's name, with any folders it's in at the front, separated by dots, like `Monsters.Undead`. Each line of the file is one thing, in the form:
@@ -186,3 +224,6 @@ Elements in bold have been implemented
 - **DropLowest(Table table, [Number x])**: returns the rest of the table, having removed the lowest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the lowest than x, x number of things are dropped at random.
 - **DropHighest(Table table, [Number x])**: returns the rest of the table, having removed the highest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the highest than x, x number of things are dropped at random.
 - **Sum(Table table)**: adds up the values of every thing in the table.
+
+## Licence
+RandomQueryLang is under the [MIT licence](LICENSE): use it however you like, in anything, as long as the copyright notice comes along. A game using the package can do that by listing it in its credits or third-party notices.
