@@ -12,4 +12,5 @@ A change waits under [Unreleased] until a release moves it under that release's 
 - The built-in functions `Roll`, `Pick`, `Sum`, `DropHighest`, `DropLowest`, `floor`, `ceil`, `round` and `abs`, and `FunctionRegistry` for adding your own.
 - Reading tables from CSV, TSV and JSON, including Roll20's rollable tables, with `TableImport`.
 - Saved queries, kept in a project's `saved-queries.json`.
+- The package is under the MIT licence.
 - `QueryResult.ToString()` gives the same text as `Display()`, so a query of several rolls can be printed.

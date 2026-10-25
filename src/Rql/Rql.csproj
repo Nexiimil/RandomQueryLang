@@ -12,6 +12,8 @@
     <Description>A query language for rolling dice and rolling on tables, for video games and table-tops.</Description>
     <PackageTags>dice;random;tables;rpg;roll20;query-language</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) 2026 Nexiimil</Copyright>
     <RepositoryUrl>https://github.com/Nexiimil/RandomQueryLang</RepositoryUrl>
     <PackageProjectUrl>https://github.com/Nexiimil/RandomQueryLang</PackageProjectUrl>
     <!-- Ship the doc comments so they show up in a game's editor. With warnings as errors, a public member without one fails the build -->

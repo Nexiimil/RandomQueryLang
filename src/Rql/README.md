@@ -28,3 +28,5 @@ foreach (Result result in rql.Run("Attack: d20 + 5; Damage: 2d6 + 3").Results)
 Pass a `Random` with a fixed seed to get the same rolls every time. A query with a mistake in it, such as a table that isn't there, throws a `QueryException` saying what's wrong and where; `Interpreter.Validate` checks a query without rolling it.
 
 The table file format, the full query language and how to add your own functions are described in the [project's README](https://github.com/Nexiimil/RandomQueryLang#readme).
+
+RandomQueryLang is under the MIT licence.

@@ -209,3 +209,6 @@ Elements in bold have been implemented
 - **DropLowest(Table table, [Number x])**: returns the rest of the table, having removed the lowest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the lowest than x, x number of things are dropped at random.
 - **DropHighest(Table table, [Number x])**: returns the rest of the table, having removed the highest valued x objects. If x is not provided, defaults to 1. In the case that there are more values considered the highest than x, x number of things are dropped at random.
 - **Sum(Table table)**: adds up the values of every thing in the table.
+
+## Licence
+RandomQueryLang is under the [MIT licence](LICENSE): use it however you like, in anything, as long as the copyright notice comes along. A game using the package can do that by listing it in its credits or third-party notices.
