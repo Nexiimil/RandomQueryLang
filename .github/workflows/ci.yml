@@ -35,7 +35,7 @@ jobs:
       - name: Test
         run: dotnet test RandomQueryLang.slnx --configuration Release --no-build
 
-      # Catches a broken package setup here rather than when a release is tagged
+      # Catches a broken package setup here rather than when a merge tries to publish it
       - name: Pack
         run: dotnet pack src/Rql/Rql.csproj --configuration Release --no-build --output artifacts
 
