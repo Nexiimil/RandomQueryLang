@@ -1,0 +1,556 @@
+@page "/"
+@using Rql.Projects
+@inject ProjectSession Projects
+@inject FunctionRegistry Functions
+@inject RollSession Session
+
+<PageTitle>Roll · RandomQueryLang</PageTitle>
+
+@if (project is null)
+{
+    <NoProject />
+    return;
+}
+
+<div class="roll-layout">
+    <section class="roll-main">
+        <h1>Roll</h1>
+
+        <form class="query-form" @onsubmit="Run">
+            <input class="query-input" aria-label="Query" placeholder="Sum(DropLowest(4d6))"
+                   spellcheck="false" autocomplete="off" autofocus
+                   @bind="Session.Query" @bind:event="oninput" @bind:after="QueryChanged" />
+            <button type="submit" class="primary" disabled="@(!HasQuery || problem is not null)">Roll</button>
+            <button type="button" class="save-query" disabled="@(!HasQuery)" title="Save this query to run again later"
+                    @onclick="StartSaving">Save</button>
+        </form>
+
+        @if (saving)
+        {
+            <form class="save-form" @onsubmit="SaveQuery">
+                <label>
+                    <span class="field-label">Save as</span>
+                    <input class="save-name" aria-label="Name for the saved query" placeholder="Ability scores" autofocus
+                           @bind="saveName" @bind:event="oninput" />
+                </label>
+                <button type="submit" class="primary" disabled="@string.IsNullOrWhiteSpace(saveName)">Save query</button>
+                <button type="button" @onclick="() => saving = false">Cancel</button>
+                @if (Replacing is SavedQuery replacing)
+                {
+                    <span class="hint">Replaces the saved query <strong>@replacing.Name</strong> (<code>@replacing.Query</code>).</span>
+                }
+                @if (saveError is not null)
+                {
+                    <span class="field-error">@saveError</span>
+                }
+            </form>
+        }
+
+        @if (asking is not null)
+        {
+            <form class="prompt-form" @onsubmit="Answer">
+                <div class="prompt-header">
+                    <strong>Before rolling</strong>
+                    <code>@asking.Query</code>
+                </div>
+                @foreach (RollPrompt prompt in asking.Prompts)
+                {
+                    <label class="prompt">
+                        <span class="field-label">
+                            @prompt.Question
+                            @if (prompt.FromCharacterSheet)
+                            {
+                                <span class="badge" title="Roll20 would read this from a character sheet">sheet</span>
+                            }
+                        </span>
+                        @if (prompt.Options.Count > 0)
+                        {
+                            <select @bind="asking.Answers[prompt.Key]" aria-label="@prompt.Question">
+                                @foreach (PromptOption option in prompt.Options)
+                                {
+                                    <option value="@option.Value">@option.Label</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input @bind="asking.Answers[prompt.Key]" @bind:event="oninput" aria-label="@prompt.Question" spellcheck="false" />
+                        }
+                    </label>
+                }
+                <div class="prompt-actions">
+                    <button type="submit" class="primary">Roll</button>
+                    <button type="button" @onclick="() => asking = null">Cancel</button>
+                </div>
+            </form>
+        }
+
+        @if (problem is not null)
+        {
+            <QueryErrorView Query="@Session.Query.Trim()" Error="problem" />
+        }
+
+        @if (Session.History.Count == 0)
+        {
+            <p class="muted empty-history">Results show up here. Run a saved query, try one of the examples, or click a table to start a query with it.</p>
+        }
+        else
+        {
+            <div class="history-header">
+                <h2>History</h2>
+                <button class="link" @onclick="Session.History.Clear">Clear</button>
+            </div>
+            <ol class="history">
+                @foreach (RollEntry entry in Session.History)
+                {
+                    <li @key="entry.Id" class="history-entry @(entry.Error is null ? "" : "failed")">
+                        <div class="history-query">
+                            <span>
+                                @if (entry.SavedAs is not null)
+                                {
+                                    <strong class="saved-label">@entry.SavedAs</strong>
+                                }
+                                <code>@entry.Query</code>
+                            </span>
+                            <span class="history-actions">
+                                <button class="link" title="Put this query back in the box" @onclick="() => Edit(entry.Query, entry.SavedAs)">Edit</button>
+                                <button class="link" title="Roll this query again" @onclick="() => RunQuery(entry.Query, entry.SavedAs)">Again</button>
+                            </span>
+                        </div>
+                        @if (entry.Result is not null)
+                        {
+                            <ResultView Result="entry.Result" />
+                        }
+                        else if (entry.Error is not null)
+                        {
+                            <QueryErrorView Query="@entry.Query" Error="entry.Error" />
+                        }
+                    </li>
+                }
+            </ol>
+        }
+    </section>
+
+    <aside class="roll-side">
+        <section class="panel palette">
+            <h2>Saved queries</h2>
+            @if (savedError is not null)
+            {
+                <p class="warning small">@savedError</p>
+            }
+            else if (saved.Count == 0)
+            {
+                <p class="muted small">Write a query and press <strong>Save</strong> to keep it here. Saved queries are kept with the project, in <code>@Project.QueriesFile</code>.</p>
+            }
+            else
+            {
+                <input class="palette-filter" type="search" placeholder="Find a saved query…" aria-label="Find a saved query"
+                       @bind="filter" @bind:event="oninput" @onkeydown="FilterKey" />
+                <ul class="saved-list">
+                    @foreach (SavedQuery query in Filtered)
+                    {
+                        string? broken = brokenSaved.GetValueOrDefault(query.Name);
+                        <li @key="query.Name" class="saved @(broken is null ? "" : "broken")">
+                            @if (deleting == query.Name)
+                            {
+                                <span class="saved-confirm">
+                                    Delete <strong>@query.Name</strong>?
+                                    <button class="danger" @onclick="() => DeleteSaved(query.Name)">Delete</button>
+                                    <button @onclick="() => deleting = null">Keep</button>
+                                </span>
+                            }
+                            else
+                            {
+                                <button class="saved-run" title="@(broken ?? "Roll " + query.Query)" @onclick="() => RunQuery(query.Query, query.Name)">
+                                    <span class="saved-name">@(broken is null ? "" : "⚠ ")@query.Name</span>
+                                    <code class="saved-query">@query.Query</code>
+                                </button>
+                                <span class="saved-actions">
+                                    <button class="icon" title="Put in the query box to change it" @onclick="() => Edit(query.Query, query.Name)">✎</button>
+                                    <button class="icon danger" title="Delete" @onclick="() => deleting = query.Name">✕</button>
+                                </span>
+                            }
+                        </li>
+                    }
+                </ul>
+                @if (!Filtered.Any())
+                {
+                    <p class="muted small">Nothing saved matches “@filter”.</p>
+                }
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Tables</h2>
+            @if (loaded.Tables.Count == 0 && loaded.Problems.Count == 0)
+            {
+                <p class="muted">No tables yet. <a href="tables/new">Make one</a>.</p>
+            }
+            @foreach (var group in TableGroups)
+            {
+                @if (group.Key.Length > 0)
+                {
+                    <div class="chip-folder"><span aria-hidden="true">📁</span> @group.Key</div>
+                }
+                <ul class="chips">
+                    @foreach (string name in group)
+                    {
+                        <li><button class="chip" title="Add @name to the query" @onclick="() => Insert(QueryText.TableReference(loaded.Tables, name))">@TableCatalog.LeafOf(name)</button></li>
+                    }
+                </ul>
+            }
+            @if (loaded.Problems.Count > 0)
+            {
+                <p class="warning">
+                    @loaded.Problems.Count table@(loaded.Problems.Count == 1 ? "" : "s") can't be rolled on.
+                    <a href="tables">See tables</a>.
+                </p>
+            }
+        </section>
+
+        <section class="panel">
+            <h2>Functions</h2>
+            <dl class="functions">
+                @foreach (Signature signature in Functions.All)
+                {
+                    <dt><button class="link mono" title="Add to the query" @onclick="() => Insert(signature.Name + '(')">@signature.Usage</button></dt>
+                    @if (signature.Description is not null)
+                    {
+                        <dd>@signature.Description</dd>
+                    }
+                }
+            </dl>
+            <p class="muted small">Arguments in [brackets] can be left out. Dice are written like <code>d20</code> or <code>4d6</code>. A table in a folder is written with dots, like <code>Monsters.Undead</code>, or just <code>Undead</code> when no other table has that name.</p>
+        </section>
+
+        <section class="panel">
+            <h2>Dice</h2>
+            <dl class="functions dice-help">
+                @foreach (var (notation, meaning) in DiceHelp)
+                {
+                    <dt><button class="link mono" title="Add to the query" @onclick="() => Insert(notation)">@notation</button></dt>
+                    <dd>@meaning</dd>
+                }
+            </dl>
+            <p class="muted small">
+                Work with <code>+ - * / % **</code> and brackets, and round with <code>floor</code>, <code>ceil</code>,
+                <code>round</code> and <code>abs</code>. Numbers can have decimals, as in Roll20.
+                Make several rolls at once by separating them with <code>;</code>, and label them with a name and a colon:
+                <code>Attack: d20 + 5; Damage: 2d6 + 3</code>. Dice can have up to @Dice.MostSides sides.
+            </p>
+        </section>
+
+        <section class="panel">
+            <h2>Examples</h2>
+            <ul class="examples">
+                @foreach (string example in Examples)
+                {
+                    <li><button class="link mono" @onclick="() => Edit(example, null)">@example</button></li>
+                }
+            </ul>
+        </section>
+    </aside>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? StartingQuery { get; set; }
+
+    private Project? project;
+    private LoadedTables loaded = LoadedTables.None;
+    private QueryException? problem;
+
+    private List<SavedQuery> saved = [];
+    private Dictionary<string, string> brokenSaved = new(StringComparer.OrdinalIgnoreCase);
+    private string? savedError;
+    private string filter = "";
+    private string? deleting;
+
+    private bool saving;
+    private string saveName = "";
+    private string? saveError;
+    /// <summary>The saved query that was put in the box, so saving again updates it.</summary>
+    private string? editingSaved;
+
+    private bool HasQuery => Session.Query.Trim().Length > 0;
+
+    private SavedQuery? Replacing =>
+        saved.FirstOrDefault(query => string.Equals(query.Name, saveName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<SavedQuery> Filtered => saved
+        .Where(query => filter.Length == 0
+            || query.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+            || query.Query.Contains(filter, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(query => query.Name, StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<IGrouping<string, string>> TableGroups => loaded.Tables.Keys
+        .Order(StringComparer.Ordinal)
+        .GroupBy(TableCatalog.FolderOf)
+        .OrderBy(group => group.Key, StringComparer.Ordinal);
+
+    private static readonly (string Notation, string Meaning)[] DiceHelp =
+    [
+        ("4d6kh3", "Keep the highest 3 (kl keeps the lowest)"),
+        ("4d6dl1", "Drop the lowest 1 (dh drops the highest)"),
+        ("d6!", "Explode: roll again on a 6, or !>5 on a 5 or more"),
+        ("d6!!", "Compound: an exploding die adds to itself"),
+        ("d6!p", "Penetrate: each extra die takes 1 off"),
+        ("d20r1", "Reroll 1s, or r<2 for 2 or less; ro rerolls once"),
+        ("5d10>8", "Count successes: dice of 8 or more"),
+        ("5d10>8f1", "...less a failure for each 1"),
+        ("4d6s", "Sort the dice (sd for highest first)"),
+        ("4dF", "Fate dice: -1, 0 or 1"),
+        ("1d20cs>18", "Show 18 or more as a critical (cf<2 for failures)"),
+        ("4d6mt", "Count sets of matching dice (m only shows them)"),
+        ("{d20, d20}kh1", "Group rolls, keeping or counting their totals"),
+        ("{3d20+5}>21", "A group of one roll: +5 to each die, then count"),
+        ("[[1d4]]d6", "Inline roll, rolled first and put in place"),
+        ("1d20+5[STR]", "Label a term; it's shown, and changes nothing"),
+        ("2t[Flaws]", "Roll on a table, Roll20's way"),
+        ("?{Bonus|2}", "Ask when rolling, with a default (or Label,value options)"),
+        ("@{strength}", "A character sheet value, asked for when rolling"),
+        ("#Name", "Roll a saved query in place"),
+    ];
+
+    private IEnumerable<string> Examples
+    {
+        get
+        {
+            yield return "d20 + 5";
+            yield return "Attack: d20 + 5; Damage: 2d6 + 3";
+            yield return "4d6kh3";
+            yield return "Stats: 4d6kh3; 4d6kh3; 4d6kh3; 4d6kh3; 4d6kh3; 4d6kh3";
+            yield return "8d6!";
+            yield return "5d10>8";
+            yield return "{d20, d20}kh1 + ?{Bonus|0}";
+            yield return "1d20 + @{strength}[STR] + 2[Proficiency]";
+            string? table = loaded.Tables.Keys.Order(StringComparer.Ordinal).FirstOrDefault();
+            if (table is not null)
+            {
+                string reference = QueryText.TableReference(loaded.Tables, table);
+                yield return $"Roll({reference}, d4)";
+                yield return $"DropHighest({reference}, 2)";
+            }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        project = Projects.Current;
+        if (project is null)
+        {
+            return;
+        }
+        Reload();
+        // The page is drawn once before it connects, and rolling then would show a roll that's thrown away.
+        if (RendererInfo.IsInteractive && !string.IsNullOrWhiteSpace(StartingQuery))
+        {
+            RunQuery(StartingQuery, null);
+        }
+    }
+
+    /// <summary>Reads the tables and saved queries again, which may have changed in here or in the files.</summary>
+    private void Reload()
+    {
+        loaded = project!.Tables.LoadAll();
+        try
+        {
+            saved = [.. project.Queries.All()];
+            savedError = null;
+        }
+        catch (InvalidDataException e)
+        {
+            saved = [];
+            savedError = e.Message;
+        }
+        brokenSaved.Clear();
+        foreach (SavedQuery query in saved)
+        {
+            try
+            {
+                Interpreter().Validate(query.Query);
+            }
+            catch (QueryException e)
+            {
+                brokenSaved[query.Name] = e.Message;
+            }
+        }
+        Validate();
+    }
+
+    private Interpreter Interpreter() => new(new Context(loaded.Tables, Random.Shared), Functions)
+    {
+        // Saved queries are the macros #Name rolls.
+        Macros = saved.GroupBy(query => query.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(same => same.Key, same => same.First().Query, StringComparer.OrdinalIgnoreCase),
+    };
+
+    /// <summary>A query waiting on answers before it's rolled, and the answers given so far.</summary>
+    private sealed class Asking(string query, string? savedAs)
+    {
+        public string Query { get; } = query;
+        public string? SavedAs { get; } = savedAs;
+        public List<RollPrompt> Prompts { get; } = [];
+        public Dictionary<string, string> Answers { get; } = new(StringComparer.Ordinal);
+    }
+
+    private Asking? asking;
+
+    private void QueryChanged()
+    {
+        saveError = null;
+        Validate();
+    }
+
+    /// <summary>Checks the query as it's typed, so mistakes show before anything is rolled.</summary>
+    private void Validate()
+    {
+        string query = Session.Query.Trim();
+        problem = null;
+        if (query.Length == 0)
+        {
+            return;
+        }
+        try
+        {
+            Interpreter().Validate(query);
+        }
+        catch (QueryException e)
+        {
+            problem = e;
+        }
+    }
+
+    private void Run() => RunQuery(Session.Query, editingSaved is not null && SavedMatchesBox() ? editingSaved : null);
+
+    private bool SavedMatchesBox() =>
+        saved.Any(query => query.Name == editingSaved && query.Query == Session.Query.Trim());
+
+    private void RunQuery(string query, string? savedAs)
+    {
+        query = query.Trim();
+        if (query.Length == 0)
+        {
+            return;
+        }
+        Reload();
+        asking = new Asking(query, savedAs);
+        Answer();
+    }
+
+    /// <summary>
+    /// Asks for anything the query needs that hasn't been asked yet, which an answer can add to, and rolls
+    /// once everything has been.
+    /// </summary>
+    private void Answer()
+    {
+        if (asking is null)
+        {
+            return;
+        }
+        Interpreter interpreter = Interpreter();
+        var known = asking.Prompts.Select(prompt => prompt.Key).ToHashSet();
+        List<RollPrompt> fresh = [.. interpreter.Prompts(asking.Query, asking.Answers).Where(prompt => !known.Contains(prompt.Key))];
+        if (fresh.Count > 0)
+        {
+            foreach (RollPrompt prompt in fresh)
+            {
+                asking.Prompts.Add(prompt);
+                asking.Answers[prompt.Key] = Session.Answers.GetValueOrDefault(prompt.Key) is string last
+                    && (prompt.Options.Count == 0 || prompt.Options.Any(option => option.Value == last))
+                    ? last
+                    : prompt.Default ?? prompt.Options.FirstOrDefault()?.Value ?? "";
+            }
+            return;
+        }
+
+        foreach (var (key, value) in asking.Answers)
+        {
+            Session.Answers[key] = value;
+        }
+        string query = asking.Query;
+        string? savedAs = asking.SavedAs;
+        try
+        {
+            Session.History.Insert(0, new RollEntry(query, interpreter.Run(query, asking.Answers), null, savedAs));
+        }
+        catch (QueryException e)
+        {
+            Session.History.Insert(0, new RollEntry(query, null, e, savedAs));
+        }
+        catch (PromptsNeededException e)
+        {
+            // Only an answer left empty gets here; asking again shows which.
+            Session.History.Insert(0, new RollEntry(query, null, new QueryException(e.Message, QueryException.Nowhere), savedAs));
+        }
+        asking = null;
+    }
+
+    private void Edit(string query, string? savedAs)
+    {
+        Session.Query = query;
+        editingSaved = savedAs;
+        saving = false;
+        Validate();
+    }
+
+    private void FilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && Filtered.FirstOrDefault() is SavedQuery first)
+        {
+            RunQuery(first.Query, first.Name);
+        }
+        else if (e.Key == "Escape")
+        {
+            filter = "";
+        }
+    }
+
+    private void StartSaving()
+    {
+        saving = true;
+        saveError = null;
+        saveName = editingSaved ?? saveName;
+    }
+
+    private void SaveQuery()
+    {
+        try
+        {
+            project!.Queries.Save(new SavedQuery(saveName, Session.Query));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
+        {
+            saveError = e.Message;
+            return;
+        }
+        editingSaved = saveName.Trim();
+        saving = false;
+        saveName = "";
+        Reload();
+    }
+
+    private void DeleteSaved(string name)
+    {
+        project!.Queries.Delete(name);
+        deleting = null;
+        if (editingSaved == name)
+        {
+            editingSaved = null;
+        }
+        Reload();
+    }
+
+    /// <summary>
+    /// Adds to the end of the query: straight after an opening bracket, after a space following an operator
+    /// or separator, and otherwise as another argument, after a comma.
+    /// </summary>
+    private void Insert(string text)
+    {
+        string query = Session.Query.TrimEnd();
+        Session.Query = query.Length == 0 ? text
+            : query[^1] == '(' ? query + text
+            : query[^1] is ',' or '+' or '-' or '*' or '/' or '%' or ';' or ':' ? $"{query} {text}"
+            : $"{query}, {text}";
+        Validate();
+    }
+}

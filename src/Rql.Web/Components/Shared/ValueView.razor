@@ -1,0 +1,40 @@
+@* One value, laid out for its type. *@
+
+@switch (Value)
+{
+    case Table { Count: 0 }:
+        <p class="muted">No rows.</p>
+        break;
+
+    case Table table:
+        <table class="result-table">
+            <thead>
+                <tr><th>Name</th><th class="num">Value</th></tr>
+            </thead>
+            <tbody>
+                @foreach (Thing thing in table.Things)
+                {
+                    <tr><td>@thing.Name</td><td class="num">@thing.Value</td></tr>
+                }
+            </tbody>
+            @if (table.Count > 1)
+            {
+                <tfoot>
+                    <tr><td>@table.Count rows</td><td class="num">Σ @table.Total()</td></tr>
+                </tfoot>
+            }
+        </table>
+        break;
+
+    case decimal number:
+        <div class="result-number">@Numbers.Display(number)</div>
+        break;
+
+    default:
+        <div class="result-text">@ValueTypes.Display(Value)</div>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public object Value { get; set; } = default!;
+}

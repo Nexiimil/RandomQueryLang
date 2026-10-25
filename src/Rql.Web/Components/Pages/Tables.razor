@@ -1,0 +1,135 @@
+@page "/tables"
+@using Rql.Projects
+@inject ProjectSession Projects
+
+<PageTitle>Tables · RandomQueryLang</PageTitle>
+
+@if (project is null)
+{
+    <NoProject />
+    return;
+}
+
+<div class="page-header">
+    <h1>Tables</h1>
+    <div class="header-actions">
+        <a class="button" href="tables/import">Import</a>
+        <a class="button primary" href="tables/new">New table</a>
+    </div>
+</div>
+
+@if (groups.Count == 0)
+{
+    <div class="empty">
+        <p>There are no tables in <code>@project.Directory</code> yet.</p>
+        <p><a class="button primary" href="tables/new">Make your first table</a> <a class="button" href="tables/import">Import tables</a></p>
+    </div>
+}
+
+@foreach (var group in groups)
+{
+    <section class="table-group">
+        <div class="group-header">
+            <h2>
+                @if (group.Key.Length == 0)
+                {
+                    <span>@project.Name</span>
+                }
+                else
+                {
+                    <span class="muted" aria-hidden="true">📁</span> @group.Key
+                }
+            </h2>
+            <a class="link small" href="@NewLink(group.Key)">+ New table here</a>
+        </div>
+        <table class="listing">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th class="num">Rows</th>
+                    <th>Preview</th>
+                    <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (Entry entry in group)
+                {
+                    <tr class="@(entry.Problem is null ? "" : "bad")">
+                        <td>
+                            @if (TableStore.IsValidName(entry.Name))
+                            {
+                                <a href="@EditorLink(entry.Name)">@TableCatalog.LeafOf(entry.Name)</a>
+                            }
+                            else
+                            {
+                                <code>@entry.Name</code>
+                            }
+                        </td>
+                        @if (entry.Table is not null)
+                        {
+                            <td class="num">@entry.Table.Count</td>
+                            <td class="preview">@Preview(entry.Table)</td>
+                            <td class="actions-cell">
+                                <div class="row-actions">
+                                    <a class="button" href="@RollLink(entry.Name)">Roll</a>
+                                    <a class="button" href="@EditorLink(entry.Name)">Edit</a>
+                                </div>
+                            </td>
+                        }
+                        else
+                        {
+                            <td></td>
+                            <td class="problem">@entry.Problem</td>
+                            <td class="actions-cell">
+                                @if (TableStore.IsValidName(entry.Name))
+                                {
+                                    <div class="row-actions"><a class="button" href="@EditorLink(entry.Name)">Fix</a></div>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private sealed record Entry(string Name, Table? Table, string? Problem);
+
+    private Project? project;
+    private TableCatalog catalog = TableCatalog.Empty;
+    private List<IGrouping<string, Entry>> groups = [];
+
+    protected override void OnInitialized()
+    {
+        project = Projects.Current;
+        if (project is null)
+        {
+            return;
+        }
+        LoadedTables loaded = project.Tables.LoadAll();
+        catalog = loaded.Tables;
+        var problems = loaded.Problems.ToDictionary(problem => problem.Name, problem => problem.Message);
+        groups = [.. loaded.Tables.Keys.Concat(problems.Keys)
+            .Order(StringComparer.Ordinal)
+            .Select(name => new Entry(name, loaded.Tables.GetValueOrDefault(name), problems.GetValueOrDefault(name)))
+            .GroupBy(entry => TableStore.IsValidName(entry.Name) ? TableCatalog.FolderOf(entry.Name) : "")
+            .OrderBy(group => group.Key, StringComparer.Ordinal)];
+    }
+
+    public static string EditorLink(string name) => "tables/edit/" + Uri.EscapeDataString(name);
+
+    public static string NewLink(string folder) =>
+        folder.Length == 0 ? "tables/new" : $"tables/new?folder={Uri.EscapeDataString(folder)}";
+
+    private string RollLink(string name) =>
+        $"?q={Uri.EscapeDataString($"Roll({QueryText.TableReference(catalog, name)})")}";
+
+    private static string Preview(Table table)
+    {
+        const int Shown = 4;
+        string names = string.Join(", ", table.Things.Take(Shown).Select(thing => thing.Name));
+        return table.Count > Shown ? names + ", …" : names;
+    }
+}

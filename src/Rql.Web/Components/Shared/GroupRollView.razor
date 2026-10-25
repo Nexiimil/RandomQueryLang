@@ -1,0 +1,24 @@
+@* A group of rolls, {...}, and which of its rolls or dice were kept or counted. *@
+
+<span class="dice-roll" title="@Group.Describe()">
+    <code class="dice-notation">@Group.Text</code>
+    <span class="dice">
+        @foreach (GroupEntry entry in Group.Entries)
+        {
+            <span class="@Classes(entry)" title="@entry.Text">@Numbers.Display(entry.Value)</span>
+        }
+    </span>
+    <span class="dice-total">= @Numbers.Display(Group.Total)</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public GroupRoll Group { get; set; } = default!;
+
+    private static string Classes(GroupEntry entry) => string.Join(' ', new[]
+    {
+        "die group-entry",
+        entry.Dropped ? "dropped" : "",
+        entry.Success ? "success" : "",
+        entry.Failure ? "failure" : "",
+    }.Where(name => name.Length > 0));
+}
