@@ -68,7 +68,7 @@ void CheckPullRequest(string baseRef)
                 $"This changes the library ({string.Join(", ", library.Take(5))}{(library.Length > 5 ? ", ..." : "")}) "
                 + $"but adds nothing under [Unreleased] in {ChangelogPath}. Say what changed for someone using the package.");
         }
-        Console.WriteLine($"The library changed and [Unreleased] has {head.Unreleased.Entries.Count} entries.");
+        Console.WriteLine($"The library changed and [Unreleased] says what changed.");
     }
 
     SemanticVersion? latest = Releases().Where(version => !version.IsPrerelease).Max();
@@ -132,7 +132,11 @@ void CheckRelease(string tag)
             $"[{version}] adds or deprecates something, so it has to be at least a minor release after {previous}, not a patch.");
     }
 
-    if (!breakingAllowed)
+    if (breakingAllowed)
+    {
+        Console.WriteLine($"{version} is allowed to break things after {previous}, so the public API isn't compared with it.");
+    }
+    else
     {
         Console.WriteLine($"{version} can't break anything, so its public API must still be compatible with {previous}.");
         Output("baseline", previous.ToNormalizedString());
