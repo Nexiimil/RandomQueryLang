@@ -1,9 +1,9 @@
 # Changelog
 Every change to the RandomQueryLang package that someone using it would notice is written down here, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-A change waits under [Unreleased] until a release moves it under that release's version. Entries go under one of Added, Changed, Deprecated, Removed, Fixed or Security. Anything that could break code using the package goes under Removed, or starts with **Breaking** if it's under Changed, and needs a major release (a minor one before 1.0).
+Every pull request that changes the package releases a new version of it, published as soon as it's merged. Write what changed under `## [Unreleased]` at the top, in Added, Changed, Deprecated, Removed, Fixed or Security, then run `dotnet run build/Changelog.cs -- version` to turn it into the next version. Anything that could break code using the package goes under Removed, or starts with **Breaking** if it's under Changed.
 
-## [Unreleased]
+## [0.1.0] - 2026-10-25
 
 ### Added
 - The query language as a library: parse and run queries with `Interpreter`, against tables made in code or read from a folder of `.RQLtable` files with `Project`.

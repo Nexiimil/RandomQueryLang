@@ -39,8 +39,8 @@ jobs:
       - name: Pack
         run: dotnet pack src/Rql/Rql.csproj --configuration Release --no-build --output artifacts
 
-  # A change to the library has to say what changed in its changelog, and can't break the public API
-  # of the last release unless the changelog says it does
+  # A change to the package has to give it its next version in the changelog, which merging publishes,
+  # and can't break the public API of the last release unless that version is allowed to
   versioning:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
