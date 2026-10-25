@@ -1,0 +1,78 @@
+@* One roll of dice, die by die: what was kept, dropped, rerolled, exploded or matched, and what it came to. *@
+
+<span class="dice-roll" title="@Roll.Describe()">
+    <code class="dice-notation">@Roll.Dice.Display()</code>
+    @if (Roll.Dice.Label is not null)
+    {
+        <span class="term-label">@Roll.Dice.Label</span>
+    }
+    <span class="dice">
+        @if (Roll.Faces.Count == 0)
+        {
+            <span class="muted small">no dice</span>
+        }
+        @foreach (Die die in Roll.Faces)
+        {
+            @foreach (int rerolled in die.Rerolled)
+            {
+                <span class="die rerolled" title="Rerolled">@rerolled</span>
+            }
+            <span class="@Classes(die)" title="@Title(die)">@die.Value@(die.Exploded ? "!" : "")</span>
+        }
+    </span>
+    <span class="dice-total">= @Roll.Total@Unit</span>
+</span>
+
+@code {
+    [Parameter, EditorRequired] public DiceRoll Roll { get; set; } = default!;
+
+    private string Unit =>
+        Roll.Dice.Match is { Count: true } ? (Roll.Total == 1 ? " match" : " matches")
+        : Roll.Dice.Success is not null ? (Roll.Total == 1 ? " success" : " successes")
+        : "";
+
+    private static string Classes(Die die)
+    {
+        var classes = new List<string> { "die" };
+        if (die.Dropped)
+        {
+            classes.Add("dropped");
+        }
+        if (die.Exploded)
+        {
+            classes.Add("exploded");
+        }
+        if (die.Success)
+        {
+            classes.Add("success");
+        }
+        if (die.Failure)
+        {
+            classes.Add("failure");
+        }
+        if (die.MatchSet is int set)
+        {
+            classes.Add($"matched match-{set % 4}");
+        }
+        // As in Roll20, a critical failure is shown over a critical success when a die is both.
+        if (die.CriticalFailure)
+        {
+            classes.Add("fumble");
+        }
+        else if (die.CriticalSuccess)
+        {
+            classes.Add("crit");
+        }
+        return string.Join(' ', classes);
+    }
+
+    private static string? Title(Die die) =>
+        die.Dropped ? "Dropped"
+        : die.Success ? "Success"
+        : die.Failure ? "Failure"
+        : die.MatchSet is not null ? "Matched"
+        : die.Exploded ? "From an explosion"
+        : die.CriticalFailure ? "Critical failure"
+        : die.CriticalSuccess ? "Critical success"
+        : null;
+}

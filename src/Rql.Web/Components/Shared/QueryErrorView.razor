@@ -1,0 +1,16 @@
+@* A query with a caret under where it went wrong, like the command line shows. *@
+
+<div class="query-error" role="alert">
+    @if (Error.Position >= 0)
+    {
+        <pre class="caret-view"><span>@Query</span>
+<span class="caret">@(new string(' ', Math.Min(Error.Position, Query.Length)))^</span></pre>
+    }
+    <div class="query-error-message">@Error.Message</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Query { get; set; } = "";
+
+    [Parameter, EditorRequired] public QueryException Error { get; set; } = default!;
+}

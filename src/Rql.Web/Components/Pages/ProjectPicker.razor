@@ -1,0 +1,95 @@
+@page "/projects"
+@using Rql.Projects
+@inject ProjectSession Projects
+@inject RecentProjects Recent
+@inject NavigationManager Navigation
+
+<PageTitle>Projects · RandomQueryLang</PageTitle>
+
+<h1>Projects</h1>
+<p class="muted">A project is a folder of tables. Tables in folders inside it are found too, and the queries you save are kept in it.</p>
+
+@if (Projects.Current is Project open)
+{
+    <section class="panel current-project">
+        <div>
+            <div class="eyebrow">Open now</div>
+            <h2>@open.Name</h2>
+            <code class="path">@open.Directory</code>
+        </div>
+        <div class="row-actions">
+            <a class="button" href="tables">Tables</a>
+            <a class="button primary" href="">Roll</a>
+        </div>
+    </section>
+}
+
+@if (error is not null)
+{
+    <div class="banner error">@error</div>
+}
+
+<div class="projects-layout">
+    <section>
+        <h2>Recent</h2>
+        @if (recent.Count == 0)
+        {
+            <p class="muted">Projects you open will be listed here.</p>
+        }
+        <ul class="recent">
+            @foreach (string directory in recent)
+            {
+                bool exists = Directory.Exists(directory);
+                bool isOpen = Projects.Current?.Directory == directory;
+                <li class="@(exists ? "" : "missing")">
+                    <button class="recent-open" disabled="@(!exists)" @onclick="() => Open(directory)">
+                        <strong>@(new Project(directory).Name)</strong>
+                        <code class="path">@directory</code>
+                        @if (!exists)
+                        {
+                            <span class="problem">This folder isn't there any more.</span>
+                        }
+                    </button>
+                    @if (isOpen)
+                    {
+                        <span class="badge ok">Open</span>
+                    }
+                    <button class="icon" title="Take off this list (the folder is left alone)" @onclick="() => Forget(directory)">✕</button>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section>
+        <h2>Open a folder</h2>
+        <p class="muted small">Pick any folder to use it as a project, or make a new folder for a new one.</p>
+        <FolderBrowser Start="@(Projects.Current is null ? null : Path.GetDirectoryName(Projects.Current.Directory))"
+                       OpenLabel="Open as project" OnOpen="Open" />
+    </section>
+</div>
+
+@code {
+    private List<string> recent = [];
+    private string? error;
+
+    protected override void OnInitialized() => recent = [.. Recent.All()];
+
+    private void Open(string directory)
+    {
+        try
+        {
+            Projects.Open(directory);
+            Navigation.NavigateTo("tables");
+        }
+        catch (DirectoryNotFoundException e)
+        {
+            error = e.Message;
+        }
+    }
+
+    private void Forget(string directory)
+    {
+        Recent.Forget(directory);
+        recent = [.. Recent.All()];
+    }
+}

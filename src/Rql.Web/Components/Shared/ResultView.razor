@@ -1,0 +1,60 @@
+@* What a query came to: each roll in it, laid out for its type, with what went into it. *@
+
+@foreach (var (part, index) in Result.Results.Select((part, index) => (part, index)))
+{
+    <div class="outcome">
+        @if (part.Label is not null || Result.Results.Count > 1)
+        {
+            <div class="outcome-label">@(part.Label ?? $"#{index + 1}")</div>
+        }
+        <ValueView Value="part.Value" />
+        @if (part.Inline.Count + part.Rolls.Count + part.Groups.Count > 0)
+        {
+            <ul class="dice-rolls">
+                @foreach (InlineRoll inline in part.Inline)
+                {
+                    <li class="inline-roll">
+                        <code class="dice-notation">[[@inline.Text]]</code>
+                        <span class="dice-total">= @Numbers.Display(inline.Value)</span>
+                        @if (inline.Rolls.Count > 0)
+                        {
+                            <ul class="dice-rolls nested">
+                                @foreach (DiceRoll roll in inline.Rolls.Take(ShownRolls))
+                                {
+                                    <li><DiceRollView Roll="roll" /></li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+                @foreach (DiceRoll roll in part.Rolls.Take(ShownRolls))
+                {
+                    <li><DiceRollView Roll="roll" /></li>
+                }
+                @if (part.Rolls.Count > ShownRolls)
+                {
+                    <li class="muted small">and @(part.Rolls.Count - ShownRolls) more rolls</li>
+                }
+                @foreach (GroupRoll group in part.Groups)
+                {
+                    <li><GroupRollView Group="group" /></li>
+                }
+            </ul>
+        }
+        @if (part.Labels.Count > 0)
+        {
+            <ul class="term-labels">
+                @foreach (LabelledValue labelled in part.Labels)
+                {
+                    <li><span class="term-label">@labelled.Label</span> @labelled.Value</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    private const int ShownRolls = 12;
+
+    [Parameter, EditorRequired] public QueryResult Result { get; set; } = default!;
+}

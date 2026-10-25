@@ -1,0 +1,298 @@
+@page "/tables/import"
+@using System.Globalization
+@using Rql.Projects
+@inject ProjectSession Projects
+@inject NavigationManager Navigation
+
+<PageTitle>Import tables · RandomQueryLang</PageTitle>
+
+@if (project is null)
+{
+    <NoProject />
+    return;
+}
+
+<a class="back" href="tables">← Tables</a>
+<h1>Import tables</h1>
+<p class="muted">
+    Bring in tables from CSV or JSON, or from another project's <code>.RQLtable</code> files. Look them over, then import the
+    ones you want.
+</p>
+
+<div class="import-sources">
+    <section class="panel">
+        <h2>From files</h2>
+        <InputFile class="file-input" OnChange="Upload" multiple accept=".csv,.tsv,.json,.txt,.RQLtable" />
+        <p class="muted small">CSV, TSV, JSON or table files. Each file is named after itself.</p>
+    </section>
+
+    <section class="panel">
+        <h2>Pasted</h2>
+        <textarea class="paste" rows="6" spellcheck="false" placeholder="name,value,weight&#10;Sword,10,2&#10;Shield,5,1"
+                  aria-label="Pasted tables" @bind="pasted" @bind:event="oninput"></textarea>
+        <div class="paste-actions">
+            <input aria-label="Name for the pasted table" placeholder="Name" spellcheck="false" @bind="pastedName" @bind:event="oninput" />
+            <button disabled="@string.IsNullOrWhiteSpace(pasted)" @onclick="AddPasted">Read</button>
+        </div>
+    </section>
+</div>
+
+@if (uploadError is not null)
+{
+    <div class="banner error">@uploadError</div>
+}
+
+<section class="import-help">
+    <details>
+        <summary>What can be imported</summary>
+        <ul>
+            <li><strong>CSV</strong> with a header row finds its columns by name: <code>name</code> (or item, result), <code>value</code>,
+                <code>chance</code> (0 to 1, or a percentage) or <code>weight</code>. Other columns are left out. Without a header,
+                columns are name, value and chance. Commas, semicolons or tabs can separate them.</li>
+            <li><strong>JSON</strong> can be a list of names, a list of rows like <code>{"name": "Sword", "value": 10, "weight": 2}</code>,
+                a table like <code>{"name": "Loot", "items": [...]}</code> (how Roll20 gives a rollable table), or several tables
+                in a list or under <code>"tables"</code>.</li>
+            <li><strong>Weights</strong> work as in Roll20: weight 2 comes up twice as often as weight 1, and a row with no weight counts as 1.
+                They're turned into chances.</li>
+        </ul>
+    </details>
+</section>
+
+@if (candidates.Count > 0)
+{
+    <div class="import-folder">
+        <label class="field">
+            <span class="field-label">Into folder</span>
+            <input class="folder-input" placeholder="(top of the project)" spellcheck="false" list="import-folders"
+                   @bind="folder" @bind:event="oninput" @bind:after="Check" />
+            <datalist id="import-folders">
+                @foreach (string existing in folders)
+                {
+                    <option value="@existing"></option>
+                }
+            </datalist>
+        </label>
+    </div>
+
+    <ul class="candidates">
+        @foreach (Candidate candidate in candidates)
+        {
+            <li @key="candidate" class="candidate @(candidate.Ready ? "" : "bad")">
+                <div class="candidate-header">
+                    <label class="include">
+                        <input type="checkbox" @bind="candidate.Include" @bind:after="Check" disabled="@(candidate.Definition is null)" />
+                        <span class="visually-hidden">Import</span>
+                    </label>
+                    <input class="candidate-name" aria-label="Table name" spellcheck="false" disabled="@(candidate.Definition is null)"
+                           @bind="candidate.Name" @bind:event="oninput" @bind:after="Check" />
+                    <span class="muted small">from @candidate.Source</span>
+                    <button class="icon" title="Leave this out" @onclick="() => Remove(candidate)">✕</button>
+                </div>
+
+                @if (candidate.Error is not null)
+                {
+                    <p class="problem">@candidate.Error</p>
+                }
+                else
+                {
+                    @if (candidate.NameProblem is not null)
+                    {
+                        <p class="problem">@candidate.NameProblem</p>
+                    }
+                    @if (candidate.Exists)
+                    {
+                        <label class="replace">
+                            <input type="checkbox" @bind="candidate.Replace" @bind:after="Check" />
+                            Replace the table already called <strong>@FullName(candidate)</strong>
+                        </label>
+                    }
+                    @if (candidate.Problem is not null)
+                    {
+                        <p class="problem">@candidate.Problem</p>
+                    }
+                    else if (candidate.Resolved is { } table)
+                    {
+                        <table class="result-table preview-table">
+                            <thead><tr><th>Name</th><th class="num">Value</th><th class="num">Chance</th></tr></thead>
+                            <tbody>
+                                @foreach (Thing thing in table.Things.Take(Previewed))
+                                {
+                                    <tr><td>@thing.Name</td><td class="num">@thing.Value</td><td class="num">@Percent(thing.Chance)</td></tr>
+                                }
+                            </tbody>
+                            @if (table.Count > Previewed)
+                            {
+                                <tfoot><tr><td colspan="3">and @(table.Count - Previewed) more rows</td></tr></tfoot>
+                            }
+                        </table>
+                    }
+                }
+            </li>
+        }
+    </ul>
+
+    <div class="import-actions">
+        <button class="primary" disabled="@(Importing == 0)" @onclick="Import">
+            Import @Importing table@(Importing == 1 ? "" : "s")
+        </button>
+        <button @onclick="() => candidates.Clear()">Clear</button>
+    </div>
+}
+
+@if (imported.Count > 0)
+{
+    <div class="banner ok">
+        <span>Imported @string.Join(", ", imported).</span>
+        <a class="button" href="tables">See tables</a>
+    </div>
+}
+
+@code {
+    private const int Previewed = 5;
+    private const long LargestFile = 5 * 1024 * 1024;
+
+    /// <summary>A table read from a file or pasted text, waiting to be imported.</summary>
+    private sealed class Candidate
+    {
+        public required string Source { get; init; }
+        public TableDefinition? Definition { get; init; }
+        public string? Error { get; init; }
+        public string Name { get; set; } = "";
+        public bool Include { get; set; } = true;
+        public bool Replace { get; set; }
+
+        // Worked out again whenever anything changes.
+        public Table? Resolved { get; set; }
+        public string? Problem { get; set; }
+        public string? NameProblem { get; set; }
+        public bool Exists { get; set; }
+
+        public bool Ready => Definition is not null && Problem is null && NameProblem is null && (!Exists || Replace);
+    }
+
+    private Project? project;
+    private readonly List<Candidate> candidates = [];
+    private List<string> folders = [];
+    private string folder = "";
+    private string pasted = "";
+    private string pastedName = "";
+    private string? uploadError;
+    private readonly List<string> imported = [];
+
+    private int Importing => candidates.Count(candidate => candidate.Include && candidate.Ready);
+
+    protected override void OnInitialized()
+    {
+        project = Projects.Current;
+        if (project is not null)
+        {
+            folders = [.. project.Tables.Folders()];
+        }
+    }
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        uploadError = null;
+        imported.Clear();
+        foreach (IBrowserFile file in e.GetMultipleFiles(maximumFileCount: 100))
+        {
+            try
+            {
+                using var reader = new StreamReader(file.OpenReadStream(LargestFile));
+                Read(await reader.ReadToEndAsync(), file.Name, file.Name);
+            }
+            catch (IOException exception)
+            {
+                uploadError = $"Couldn't read {file.Name}: {exception.Message}";
+            }
+        }
+        Check();
+    }
+
+    private void AddPasted()
+    {
+        imported.Clear();
+        string name = string.IsNullOrWhiteSpace(pastedName) ? "Pasted" : pastedName.Trim();
+        Read(pasted, name, "pasted text");
+        pasted = "";
+        pastedName = "";
+        Check();
+    }
+
+    private void Read(string text, string name, string source)
+    {
+        try
+        {
+            ImportFormat format = TableImport.Detect(text, name);
+            foreach (TableDefinition table in TableImport.Import(text, name, format))
+            {
+                candidates.Add(new Candidate { Source = source, Definition = table, Name = table.Name });
+            }
+        }
+        catch (TableFormatException exception)
+        {
+            candidates.Add(new Candidate { Source = source, Error = Capitalise(exception.Message), Name = TableImport.SuggestName(name), Include = false });
+        }
+    }
+
+    private string FullName(Candidate candidate) =>
+        string.Join(TableCatalog.Separator, new[] { folder.Trim().Replace('/', '.').Trim('.'), candidate.Name.Trim() }.Where(part => part.Length > 0));
+
+    /// <summary>Works out again whether each table can be imported, and under what name.</summary>
+    private void Check()
+    {
+        var names = candidates.Where(candidate => candidate.Include && candidate.Definition is not null)
+            .GroupBy(FullName).Where(same => same.Count() > 1).Select(same => same.Key).ToHashSet();
+        foreach (Candidate candidate in candidates.Where(candidate => candidate.Definition is not null))
+        {
+            string full = FullName(candidate);
+            candidate.NameProblem =
+                !TableStore.IsValidName(full) ? Capitalise(TableStore.NameRule) + "."
+                : names.Contains(full) ? "Another table here would have the same name."
+                : null;
+            candidate.Exists = candidate.NameProblem is null && project!.Tables.Exists(full);
+            try
+            {
+                candidate.Resolved = (candidate.Definition! with { Name = full }).Resolve();
+                candidate.Problem = candidate.Resolved.Count == 0 ? "It has no rows." : null;
+            }
+            catch (TableFormatException exception)
+            {
+                candidate.Resolved = null;
+                candidate.Problem = exception.Row is int row ? $"Row {row}: {exception.Problem}" : Capitalise(exception.Problem);
+            }
+        }
+    }
+
+    private void Remove(Candidate candidate)
+    {
+        candidates.Remove(candidate);
+        Check();
+    }
+
+    private void Import()
+    {
+        Check();
+        imported.Clear();
+        foreach (Candidate candidate in candidates.Where(candidate => candidate.Include && candidate.Ready).ToList())
+        {
+            string full = FullName(candidate);
+            try
+            {
+                project!.Tables.Save(candidate.Definition! with { Name = full });
+                imported.Add(full);
+                candidates.Remove(candidate);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                candidate.Problem = $"Couldn't save it: {exception.Message}";
+            }
+        }
+        folders = [.. project!.Tables.Folders()];
+        Check();
+    }
+
+    private static string Percent(double chance) => (chance * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+    private static string Capitalise(string message) => message.Length == 0 ? message : char.ToUpperInvariant(message[0]) + message[1..];
+}

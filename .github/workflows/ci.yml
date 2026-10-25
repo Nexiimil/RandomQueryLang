@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore RandomQueryLang.slnx
+
+      # Directory.Build.props sets TreatWarningsAsErrors, so any warning fails this step too
+      - name: Build
+        run: dotnet build RandomQueryLang.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test RandomQueryLang.slnx --configuration Release --no-build

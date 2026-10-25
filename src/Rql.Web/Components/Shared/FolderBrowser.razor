@@ -1,0 +1,142 @@
+@* Browses the folders on this computer, to pick one to open as a project or to make a new one in. *@
+
+<div class="browser">
+    <form class="browser-path" @onsubmit="GoToTyped">
+        <input aria-label="Folder" spellcheck="false" @bind="typed" />
+        <button type="submit">Go</button>
+    </form>
+
+    <div class="browser-shortcuts">
+        <button disabled="@(Parent is null)" @onclick="() => Go(Parent!)">↑ Up</button>
+        <button @onclick="() => Go(Home)">Home</button>
+        @foreach (string root in Roots)
+        {
+            <button @onclick="() => Go(root)">@root</button>
+        }
+    </div>
+
+    @if (error is not null)
+    {
+        <div class="banner error">@error</div>
+    }
+
+    @if (folders.Count == 0 && error is null)
+    {
+        <p class="muted small">No folders in here.</p>
+    }
+    <ul class="folder-list">
+        @foreach (string folder in folders)
+        {
+            <li><button class="folder" @onclick="() => Go(folder)"><span aria-hidden="true">📁</span> @Path.GetFileName(folder)</button></li>
+        }
+    </ul>
+
+    <div class="browser-footer">
+        <span class="muted small">@TablesHere</span>
+        <button class="primary" disabled="@(error is not null)" @onclick="() => OnOpen.InvokeAsync(current)">@OpenLabel</button>
+    </div>
+
+    <form class="browser-new" @onsubmit="MakeFolder">
+        <input aria-label="New folder name" placeholder="New folder name" spellcheck="false" @bind="newFolder" @bind:event="oninput" />
+        <button type="submit" disabled="@string.IsNullOrWhiteSpace(newFolder)">Make folder</button>
+    </form>
+</div>
+
+@code {
+    [Parameter] public string? Start { get; set; }
+
+    [Parameter] public string OpenLabel { get; set; } = "Open this folder";
+
+    [Parameter] public EventCallback<string> OnOpen { get; set; }
+
+    private const int Counted = 500;
+
+    private string current = "";
+    private string typed = "";
+    private string newFolder = "";
+    private string? error;
+    private List<string> folders = [];
+    private int tables;
+
+    private static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    private static IEnumerable<string> Roots =>
+        OperatingSystem.IsWindows() ? DriveInfo.GetDrives().Where(drive => drive.IsReady).Select(drive => drive.Name) : ["/"];
+
+    private string? Parent => Directory.GetParent(current)?.FullName;
+
+    private string TablesHere => tables switch
+    {
+        0 => "No tables in this folder.",
+        1 => "1 table in this folder.",
+        >= Counted => $"{Counted}+ tables in this folder.",
+        _ => $"{tables} tables in this folder.",
+    };
+
+    protected override void OnInitialized() =>
+        Go(Start is not null && Directory.Exists(Start) ? Start : Home);
+
+    private void GoToTyped() => Go(typed.Trim());
+
+    private void Go(string folder)
+    {
+        string full;
+        try
+        {
+            full = Path.GetFullPath(Environment.ExpandEnvironmentVariables(folder.StartsWith('~') ? Home + folder[1..] : folder));
+        }
+        catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            error = $"{folder} isn't a folder path.";
+            return;
+        }
+        if (!Directory.Exists(full))
+        {
+            error = $"There's no folder at {full}.";
+            typed = full;
+            return;
+        }
+
+        current = full;
+        typed = full;
+        error = null;
+        try
+        {
+            folders = [.. Directory.EnumerateDirectories(full, "*", new EnumerationOptions { IgnoreInaccessible = true })
+                .Order(StringComparer.OrdinalIgnoreCase)];
+            // Counting goes only a few folders deep, so pointing at a home folder doesn't search the whole disk.
+            tables = Directory.EnumerateFiles(full, "*" + Rql.Tables.TableStore.Extension,
+                    new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true, MaxRecursionDepth = 4 })
+                .Take(Counted).Count();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            folders = [];
+            tables = 0;
+            error = $"Can't look inside {full}: {e.Message}";
+        }
+    }
+
+    private void MakeFolder()
+    {
+        string name = newFolder.Trim();
+        // A project folder isn't a table, so unlike a table's folders its name can have dots in it.
+        if (name.Length == 0 || name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || name.IndexOfAny(['/', '\\']) >= 0)
+        {
+            error = $"\"{name}\" can't be used as a folder name.";
+            return;
+        }
+        try
+        {
+            string made = Path.Combine(current, name);
+            Directory.CreateDirectory(made);
+            newFolder = "";
+            Go(made);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            error = $"Couldn't make the folder: {e.Message}";
+        }
+    }
+}

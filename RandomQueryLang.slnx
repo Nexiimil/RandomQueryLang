@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Rql.Cli/Rql.Cli.csproj" />
+    <Project Path="src/Rql.Web/Rql.Web.csproj" />
+    <Project Path="src/Rql/Rql.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Rql.Tests/Rql.Tests.csproj" />
+    <Project Path="tests/Rql.Web.Tests/Rql.Web.Tests.csproj" />
+  </Folder>
+</Solution>

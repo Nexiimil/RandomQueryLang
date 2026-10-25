@@ -1,0 +1,578 @@
+@page "/tables/new"
+@page "/tables/edit/{Name}"
+@using System.Globalization
+@using Rql.Functions
+@inject ProjectSession Projects
+@inject NavigationManager Navigation
+
+<PageTitle>@Heading · RandomQueryLang</PageTitle>
+
+<NavigationLock OnBeforeInternalNavigation="ConfirmLeaving" ConfirmExternalNavigation="@Dirty" />
+
+@if (Projects.Current is null)
+{
+    <NoProject />
+    return;
+}
+
+@if (missing)
+{
+    <a class="back" href="tables">← Tables</a>
+    <h1>No such table</h1>
+    <p>There's no table named <strong>@Name</strong> in <code>@Store.Directory</code>.</p>
+    return;
+}
+
+<div class="page-header">
+    <div>
+        <a class="back" href="tables">← Tables</a>
+        <h1>@Heading</h1>
+    </div>
+    <div class="header-actions">
+        @if (Dirty)
+        {
+            <span class="badge">Unsaved changes</span>
+        }
+        else if (justSaved)
+        {
+            <span class="badge ok">Saved</span>
+        }
+        <button class="primary" disabled="@(!CanSave)" @onclick="Save">Save</button>
+    </div>
+</div>
+
+@if (leavingTo is not null)
+{
+    <div class="banner warning">
+        <span>This table has unsaved changes.</span>
+        <span class="banner-actions">
+            <button @onclick="Leave">Leave without saving</button>
+            <button class="primary" @onclick="() => leavingTo = null">Keep editing</button>
+        </span>
+    </div>
+}
+@if (saveError is not null)
+{
+    <div class="banner error">Couldn't save: @saveError</div>
+}
+
+<div class="name-fields">
+    <label class="field folder-field">
+        <span class="field-label">Folder</span>
+        <input class="folder-input" placeholder="(top of the project)" spellcheck="false" list="table-folders"
+               @bind="folder" @bind:event="oninput" @bind:after="FolderChanged" />
+        <datalist id="table-folders">
+            @foreach (string existing in folders)
+            {
+                <option value="@existing"></option>
+            }
+        </datalist>
+    </label>
+    <label class="field">
+        <span class="field-label">Name</span>
+        <input class="name-input" placeholder="WeaponTypes" spellcheck="false" autofocus="@(originalName is null)"
+               @bind="name" @bind:event="oninput" @bind:after="Changed" />
+    </label>
+</div>
+@if (NameProblem is string nameProblem)
+{
+    <p class="field-error">@nameProblem</p>
+}
+else
+{
+    <p class="hint">Written in a query as <code>@Reference</code></p>
+}
+
+<div class="mode-tabs" role="tablist">
+    <button role="tab" class="@(textMode ? "" : "active")" disabled="@(textMode && textError is not null)"
+            title="@(textMode && textError is not null ? "Fix the text first" : null)" @onclick="ShowRows">Rows</button>
+    <button role="tab" class="@(textMode ? "active" : "")" @onclick="ShowText">Text</button>
+</div>
+
+@if (!textMode)
+{
+    <div class="scroll-x">
+        <table class="editor">
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Name</th>
+                    <th title="Left empty, a row is worth its position, or its name if that's a whole number">Value</th>
+                    <th title="Between 0 and 1. Left empty, rows share whatever the others leave equally">Chance</th>
+                    <th>Share</th>
+                    <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < rows.Count; i++)
+                {
+                    int index = i;
+                    EditRow row = rows[i];
+                    int? position = PositionOf(index);
+                    <tr @key="row" class="@(badRow == index ? "bad" : "")">
+                        <td class="num muted">@(index + 1)</td>
+                        <td>
+                            <input aria-label="Name of row @(index + 1)" placeholder="Name" spellcheck="false"
+                                   @bind="row.Name" @bind:event="oninput" @bind:after="Changed" />
+                        </td>
+                        <td>
+                            <input type="number" step="1" class="narrow" aria-label="Value of row @(index + 1)"
+                                   placeholder="@(position is int p ? definition.ValueOf(p).ToString(CultureInfo.InvariantCulture) : "")"
+                                   @bind="row.Value" @bind:after="Changed" />
+                        </td>
+                        <td>
+                            <input type="number" step="any" min="0" max="1" class="narrow" aria-label="Chance of row @(index + 1)"
+                                   placeholder="auto" @bind="row.Chance" @bind:after="Changed" />
+                        </td>
+                        <td class="share">
+                            @if (resolved is not null && position is int at)
+                            {
+                                double chance = resolved.Things[at].Chance;
+                                <div class="bar" aria-hidden="true"><div style="width: @Percent(chance)"></div></div>
+                                <span class="share-text">@Percent(chance)</span>
+                            }
+                        </td>
+                        <td class="actions-cell"><div class="row-actions">
+                            <button class="icon" title="Move up" disabled="@(index == 0)" @onclick="() => Move(index, -1)">↑</button>
+                            <button class="icon" title="Move down" disabled="@(index == rows.Count - 1)" @onclick="() => Move(index, 1)">↓</button>
+                            <button class="icon danger" title="Remove row" @onclick="() => Remove(index)">✕</button>
+                        </div></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="editor-footer">
+        <button @onclick="AddRow">+ Add row</button>
+        <span class="muted small">@Summary</span>
+    </div>
+}
+else
+{
+    <textarea class="text-editor" rows="16" spellcheck="false" aria-label="Table as text"
+              @bind="text" @bind:event="oninput" @bind:after="TextChanged"></textarea>
+    <p class="hint">
+        One row per line, as <code>Name;Value;Chance</code>. Value and chance can be left out, or left empty as in
+        <code>Potion;;0.5</code>. This is exactly what's saved in the file.
+    </p>
+    @if (textError is not null)
+    {
+        <div class="banner error">@textError</div>
+    }
+}
+
+@if (problem is not null && (textError is null))
+{
+    <div class="banner error">@problem</div>
+}
+
+<section class="panel try">
+    <div class="try-header">
+        <h2>Try it</h2>
+        <span class="try-actions">
+            <button disabled="@(resolved is null)" @onclick="() => TryRolling(1)">Roll once</button>
+            <button disabled="@(resolved is null)" @onclick="() => TryRolling(10)">Roll 10 times</button>
+        </span>
+    </div>
+    @if (tryError is not null)
+    {
+        <p class="warning">@tryError</p>
+    }
+    else if (tried is null)
+    {
+        <p class="muted small">Rolls on the table as it is here, saved or not.</p>
+    }
+    else
+    {
+        <ul class="chips">
+            @foreach (Thing thing in tried.Things)
+            {
+                <li><span class="chip static">@thing.Name <small>@thing.Value</small></span></li>
+            }
+        </ul>
+    }
+</section>
+
+@if (originalName is not null)
+{
+    <section class="danger-zone">
+        @if (confirmingDelete)
+        {
+            <span>Delete <strong>@originalName</strong> for good? Its file is removed.</span>
+            <button class="danger" @onclick="Delete">Delete</button>
+            <button @onclick="() => confirmingDelete = false">Cancel</button>
+        }
+        else
+        {
+            <button class="danger-outline" @onclick="() => confirmingDelete = true">Delete table…</button>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public string? Name { get; set; }
+
+    /// <summary>The folder a new table starts in.</summary>
+    [SupplyParameterFromQuery(Name = "folder")] public string? StartFolder { get; set; }
+
+    private TableStore Store => Projects.Current!.Tables;
+
+    /// <summary>A row being edited. Rows left completely empty are skipped, like blank lines in a file.</summary>
+    private sealed class EditRow
+    {
+        public string Name { get; set; } = "";
+        public int? Value { get; set; }
+        public double? Chance { get; set; }
+
+        public bool IsBlank => string.IsNullOrWhiteSpace(Name) && Value is null && Chance is null;
+
+        public static EditRow From(TableRow row) => new() { Name = row.Name, Value = row.Value, Chance = row.Chance };
+    }
+
+    private bool loaded;
+    private string? loadedFor;
+    private bool missing;
+
+    private string? originalName;
+    private string savedText = "";
+    private string folder = "";
+    private string name = "";
+    private List<string> folders = [];
+    private List<string> others = [];
+    private List<EditRow> rows = [];
+
+    private bool textMode;
+    private string text = "";
+    private string? textError;
+
+    // Worked out again after every change.
+    private TableDefinition definition = new("", []);
+    private List<int> kept = [];
+    private Table? resolved;
+    private string? problem;
+    private int? badRow;
+
+    private bool justSaved;
+    private string? saveError;
+    private string? leavingTo;
+    private bool leaving;
+    private bool confirmingDelete;
+    private Table? tried;
+    private string? tryError;
+
+    private string Heading => originalName ?? "New table";
+
+    private string CurrentText => textMode && textError is not null ? text : Canonical(definition);
+
+    /// <summary>The table's full name: its folder, then its own name.</summary>
+    private string FullName => string.Join(TableCatalog.Separator,
+        new[] { folder.Trim().Trim(TableCatalog.Separator), name.Trim() }.Where(part => part.Length > 0));
+
+    /// <summary>How a query would write this table, given the other tables it has to be told apart from.</summary>
+    private string Reference =>
+        QueryText.TableReference(new TableCatalog(others.Append(FullName).Distinct()
+            .ToDictionary(other => other, other => new Table(other, []))), FullName);
+
+    private bool Dirty => !leaving && (FullName != (originalName ?? "") || CurrentText != savedText);
+
+    private bool CanSave => Dirty && resolved is not null && NameProblem is null && (!textMode || textError is null);
+
+    private string? NameProblem
+    {
+        get
+        {
+            if (name.Trim().Length == 0)
+            {
+                return "Give the table a name.";
+            }
+            if (name.Contains(TableCatalog.Separator))
+            {
+                return "A table's name can't have a dot in it, since dots separate folders. Use the Folder box to put it in one.";
+            }
+            string trimmed = FullName;
+            if (!TableStore.IsValidName(trimmed))
+            {
+                return Capitalise(TableStore.NameRule) + (name.Contains(' ')
+                    ? $", so try {name.Trim().Replace(' ', '_')} or {string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(Capitalise))}."
+                    : ".");
+            }
+            if (trimmed != originalName && Store.Exists(trimmed))
+            {
+                return $"There's already a table named {trimmed}.";
+            }
+            return null;
+        }
+    }
+
+    private string Summary
+    {
+        get
+        {
+            int count = definition.Rows.Count;
+            int given = definition.Rows.Count(row => row.Chance is not null);
+            string rowsText = $"{count} row{(count == 1 ? "" : "s")}";
+            if (given == 0 || given == count)
+            {
+                return count == 0 ? "No rows yet." : rowsText;
+            }
+            double total = definition.Rows.Sum(row => row.Chance ?? 0);
+            return $"{rowsText} · {given} with a chance adding up to {Percent(total)}, "
+                + $"the other {count - given} share the rest";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Saving under a new name moves to that table's address, which shouldn't load it again.
+        if (!loaded || loadedFor != Name)
+        {
+            loaded = true;
+            loadedFor = Name;
+            Load();
+        }
+    }
+
+    private void Load()
+    {
+        missing = false;
+        textMode = false;
+        textError = null;
+        tried = null;
+        justSaved = false;
+        folders = [.. Store.Folders()];
+        others = [.. Store.Names().Where(other => other != Name)];
+        if (Name is null)
+        {
+            originalName = null;
+            folder = StartFolder ?? "";
+            name = "";
+            rows = [new EditRow()];
+            Recompute();
+            savedText = Canonical(definition);
+            return;
+        }
+
+        if (!Store.Exists(Name))
+        {
+            missing = true;
+            return;
+        }
+        originalName = Name;
+        folder = TableCatalog.FolderOf(Name);
+        name = TableCatalog.LeafOf(Name);
+        try
+        {
+            rows = [.. Store.Read(Name).Rows.Select(EditRow.From)];
+            Recompute();
+            savedText = Canonical(definition);
+        }
+        catch (TableFormatException e)
+        {
+            // A file that can't be read as rows is opened as text, so it can be fixed here.
+            rows = [];
+            text = Store.ReadText(Name).Replace("\r\n", "\n");
+            savedText = text;
+            textMode = true;
+            textError = TextProblem(e);
+            Recompute();
+        }
+    }
+
+    private static string Canonical(TableDefinition table) => string.Join("\n", table.ToLines());
+
+    /// <summary>Folders are written with dots, as in a query, so slashes typed out of habit become dots.</summary>
+    private void FolderChanged()
+    {
+        folder = folder.Replace('/', TableCatalog.Separator).Replace('\\', TableCatalog.Separator);
+        Changed();
+    }
+
+    private void Changed()
+    {
+        justSaved = false;
+        saveError = null;
+        Recompute();
+    }
+
+    private void Recompute()
+    {
+        kept = [.. Enumerable.Range(0, rows.Count).Where(index => !rows[index].IsBlank)];
+        definition = new TableDefinition(FullName,
+            [.. kept.Select(index => new TableRow(rows[index].Name.Trim(), rows[index].Value, rows[index].Chance))]);
+        try
+        {
+            resolved = definition.Resolve();
+            problem = null;
+            badRow = null;
+        }
+        catch (TableFormatException e)
+        {
+            resolved = null;
+            badRow = e.Row is int row ? kept[row - 1] : null;
+            problem = badRow is int at ? $"Row {at + 1}: {e.Problem}" : Capitalise(e.Problem);
+        }
+        if (resolved is null || definition.Rows.Count == 0)
+        {
+            tried = null;
+        }
+        if (definition.Rows.Count == 0 && problem is null)
+        {
+            resolved = null;
+            problem = "Add at least one row.";
+        }
+    }
+
+    private int? PositionOf(int index)
+    {
+        int position = kept.IndexOf(index);
+        return position < 0 ? null : position;
+    }
+
+    private void AddRow()
+    {
+        rows.Add(new EditRow());
+        Changed();
+    }
+
+    private void Remove(int index)
+    {
+        rows.RemoveAt(index);
+        if (rows.Count == 0)
+        {
+            rows.Add(new EditRow());
+        }
+        Changed();
+    }
+
+    private void Move(int index, int by)
+    {
+        (rows[index], rows[index + by]) = (rows[index + by], rows[index]);
+        Changed();
+    }
+
+    private void ShowText()
+    {
+        if (!textMode)
+        {
+            text = Canonical(definition);
+            textError = null;
+            textMode = true;
+        }
+    }
+
+    private void ShowRows()
+    {
+        if (textError is null)
+        {
+            textMode = false;
+            if (rows.Count == 0)
+            {
+                rows.Add(new EditRow());
+                Recompute();
+            }
+        }
+    }
+
+    private void TextChanged()
+    {
+        try
+        {
+            rows = [.. TableDefinition.Parse(FullName, text).Rows.Select(EditRow.From)];
+            textError = null;
+        }
+        catch (TableFormatException e)
+        {
+            textError = TextProblem(e);
+        }
+        Changed();
+    }
+
+    private static string TextProblem(TableFormatException e) =>
+        e.Line is int line ? $"Line {line}: {e.Problem}" : Capitalise(e.Problem);
+
+    private void Save()
+    {
+        if (!CanSave)
+        {
+            return;
+        }
+        try
+        {
+            Store.Save(definition, originalName);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            saveError = e.Message;
+            return;
+        }
+
+        bool renamed = originalName != definition.Name;
+        originalName = definition.Name;
+        folder = TableCatalog.FolderOf(definition.Name);
+        name = TableCatalog.LeafOf(definition.Name);
+        loadedFor = definition.Name;
+        folders = [.. Store.Folders()];
+        savedText = Canonical(definition);
+        if (textMode)
+        {
+            text = savedText;
+        }
+        justSaved = true;
+        saveError = null;
+        if (renamed)
+        {
+            Navigation.NavigateTo(Tables.EditorLink(definition.Name), replace: true);
+        }
+    }
+
+    private void Delete()
+    {
+        if (originalName is not null)
+        {
+            Store.Delete(originalName);
+        }
+        leaving = true;
+        Navigation.NavigateTo("tables");
+    }
+
+    private void ConfirmLeaving(LocationChangingContext context)
+    {
+        if (Dirty)
+        {
+            context.PreventNavigation();
+            leavingTo = context.TargetLocation;
+        }
+    }
+
+    private void Leave()
+    {
+        leaving = true;
+        Navigation.NavigateTo(leavingTo ?? "tables");
+    }
+
+    private void TryRolling(int times)
+    {
+        if (resolved is null)
+        {
+            return;
+        }
+        // A tree built by hand rather than parsed: the table as it stands needn't be saved, or even named.
+        var roll = new RollTable(Literal.Of(resolved), Literal.Of((decimal)times));
+        try
+        {
+            tried = roll.Evaluate(new Context(new Dictionary<string, Table>(), Random.Shared));
+            tryError = null;
+        }
+        catch (EvalException e)
+        {
+            tried = null;
+            tryError = Capitalise(e.Message) + ".";
+        }
+    }
+
+    private static string Percent(double chance) =>
+        (chance * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+    private static string Capitalise(string message) =>
+        message.Length == 0 ? message : char.ToUpperInvariant(message[0]) + message[1..];
+}
