@@ -1,0 +1,57 @@
+name: Release
+
+# Push a tag like v1.2.0 to publish that version of the Rql library to GitHub Packages.
+# Its changelog section has to be ready first: see "Releasing the package" in the README.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the GitHub release
+      packages: write
+    env:
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the earlier release tags
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Fails unless the tag is a fitting next version and the changelog says what's in it
+      - name: Check the version and changelog
+        id: changelog
+        run: dotnet run build/Changelog.cs -- release "$VERSION"
+
+      - name: Add GitHub Packages as a source
+        run: |
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --name github --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text
+
+      - name: Restore
+        run: dotnet restore RandomQueryLang.slnx
+
+      - name: Build
+        run: dotnet build RandomQueryLang.slnx --configuration Release --no-restore -p:Version=${VERSION#v}
+
+      - name: Test
+        run: dotnet test RandomQueryLang.slnx --configuration Release --no-build
+
+      # With a baseline, package validation fails the release if the public API broke since that version
+      - name: Pack
+        run: |
+          dotnet pack src/Rql/Rql.csproj --configuration Release --output artifacts -p:Version=${VERSION#v} \
+            ${{ steps.changelog.outputs.baseline && format('-p:PackageValidationBaselineVersion={0}', steps.changelog.outputs.baseline) || '' }}
+
+      - name: Publish the package
+        run: dotnet nuget push "artifacts/*.nupkg" --source github --api-key "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Make the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$VERSION" --title "$VERSION" --notes-file release-notes.md $([[ "$VERSION" == *-* ]] && echo --prerelease)

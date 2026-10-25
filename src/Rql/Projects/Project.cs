@@ -11,6 +11,7 @@ public sealed class Project
     /// <summary>The file in the top of the project that saved queries are kept in.</summary>
     public const string QueriesFile = "saved-queries.json";
 
+    /// <summary>The project in <paramref name="directory"/>. Nothing is read or written until it's asked for.</summary>
     public Project(string directory)
     {
         Directory = System.IO.Path.GetFullPath(directory);
@@ -18,6 +19,7 @@ public sealed class Project
         Queries = new SavedQueryStore(System.IO.Path.Combine(Directory, QueriesFile));
     }
 
+    /// <summary>The full path of the project's folder.</summary>
     public string Directory { get; }
 
     /// <summary>The project's folder name.</summary>
@@ -25,9 +27,12 @@ public sealed class Project
         ? name
         : Directory;
 
+    /// <summary>The tables in the project's folder and every folder inside it.</summary>
     public TableStore Tables { get; }
 
+    /// <summary>The queries saved in the project's <see cref="QueriesFile"/>.</summary>
     public SavedQueryStore Queries { get; }
 
+    /// <summary>Whether the project's folder is there.</summary>
     public bool Exists => System.IO.Directory.Exists(Directory);
 }

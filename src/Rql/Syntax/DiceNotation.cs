@@ -378,5 +378,6 @@ public static class DiceNotation
 /// <summary>Dice notation that can't be read, with where in it the problem is.</summary>
 public sealed class DiceNotationException(string message, int offset) : FormatException(message)
 {
+    /// <summary>Where in the notation the problem is, counting from 0.</summary>
     public int Offset { get; } = offset;
 }

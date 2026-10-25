@@ -6,14 +6,17 @@ namespace Rql.Nodes;
 public sealed record Context
 {
     /// <param name="tables">Tables by their full names, which can be a <see cref="TableCatalog"/> already.</param>
+    /// <param name="random">Where every roll made with this context gets its random numbers.</param>
     public Context(IReadOnlyDictionary<string, Table> tables, Random random)
     {
         Tables = tables as TableCatalog ?? new TableCatalog(tables);
         Random = random;
     }
 
+    /// <summary>The tables a query can name, by their full names or a unique ending.</summary>
     public TableCatalog Tables { get; }
 
+    /// <summary>Where random numbers come from, for dice and for anything else left to chance.</summary>
     public Random Random { get; }
 
     /// <summary>Every roll of dice made with this context, in order, for showing how a result came about.</summary>
@@ -40,7 +43,7 @@ public sealed record Context
     /// mistake in whatever decided the subtree was settled, so it fails loudly rather than quietly rolling
     /// early.
     /// </summary>
-    public static Context Settled(IReadOnlyDictionary<string, Table> tables) => new(tables, new SettledRandom());
+    internal static Context Settled(IReadOnlyDictionary<string, Table> tables) => new(tables, new SettledRandom());
 
     private sealed class SettledRandom : Random
     {
@@ -70,17 +73,23 @@ public sealed class RollLog
     private readonly List<GroupRoll> groups = [];
     private readonly List<LabelledValue> labels = [];
 
+    /// <summary>Every roll of dice, in the order they were made.</summary>
     public IReadOnlyList<DiceRoll> Rolls => rolls;
 
+    /// <summary>Every group, with what was kept or counted, in the order they were worked out.</summary>
     public IReadOnlyList<GroupRoll> Groups => groups;
 
+    /// <summary>Every labelled term and what it came to, in the order they were worked out.</summary>
     public IReadOnlyList<LabelledValue> Labels => labels;
 
-    public void Add(DiceRoll roll) => rolls.Add(roll);
+    /// <summary>Writes a roll of dice in the log.</summary>
+    internal void Add(DiceRoll roll) => rolls.Add(roll);
 
-    public void Add(GroupRoll group) => groups.Add(group);
+    /// <summary>Writes a group in the log.</summary>
+    internal void Add(GroupRoll group) => groups.Add(group);
 
-    public void Add(LabelledValue label) => labels.Add(label);
+    /// <summary>Writes a labelled term in the log.</summary>
+    internal void Add(LabelledValue label) => labels.Add(label);
 }
 
 /// <summary>A labelled term and what it came to, like <c>STR: 5</c> for <c>5[STR]</c>.</summary>

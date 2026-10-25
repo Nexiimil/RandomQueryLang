@@ -22,6 +22,8 @@ public interface INode
     /// </summary>
     bool Rolls { get; }
 
+    /// <summary>Works out this node's value, which is always of <see cref="ValueType"/>.</summary>
+    /// <exception cref="EvalException">Something in the query can't be worked out, like dividing by 0.</exception>
     object Evaluate(Context context);
 }
 
@@ -32,12 +34,16 @@ public interface INode
 /// </summary>
 public abstract record Node<T> : INode where T : notnull
 {
+    /// <inheritdoc/>
     public Type ValueType => typeof(T);
 
+    /// <inheritdoc/>
     public abstract IReadOnlyList<INode> Children { get; }
 
+    /// <inheritdoc/>
     public virtual bool Rolls => false;
 
+    /// <inheritdoc cref="INode.Evaluate"/>
     public abstract T Evaluate(Context context);
 
     object INode.Evaluate(Context context) => Evaluate(context);

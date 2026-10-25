@@ -8,11 +8,13 @@ namespace Rql.Evaluation;
 /// </summary>
 public sealed record Result(object Value, IReadOnlyList<DiceRoll> Rolls, string? Label = null)
 {
+    /// <summary>A result with no dice rolled to get it.</summary>
     public Result(object value)
         : this(value, [])
     {
     }
 
+    /// <summary>The type of <see cref="Value"/>.</summary>
     public Type Type => Value.GetType();
 
     /// <summary>Groups kept or counted while working this out.</summary>
@@ -60,4 +62,8 @@ public sealed record QueryResult(IReadOnlyList<Result> Results)
             return value.Contains('\n') ? $"{label}:{Environment.NewLine}{value}" : $"{label}: {value}";
         }));
     }
+
+    /// <inheritdoc cref="Display"/>
+    // The record's own ToString reads every property, Single included, which throws for a query of several rolls
+    public override string ToString() => Display();
 }

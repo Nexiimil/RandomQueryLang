@@ -1,6 +1,6 @@
 namespace Rql.Syntax;
 
-public sealed class Lexer
+internal sealed class Lexer
 {
     private readonly string source;
     private int position;

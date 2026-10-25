@@ -10,6 +10,7 @@ namespace Rql.Tables;
 /// </summary>
 public sealed class TableStore
 {
+    /// <summary>What every table file's name ends in. It's matched exactly, case and all.</summary>
     public const string Extension = ".RQLtable";
 
     private static readonly EnumerationOptions Everywhere = new()
@@ -20,11 +21,13 @@ public sealed class TableStore
         MatchCasing = MatchCasing.CaseSensitive,
     };
 
+    /// <summary>The tables in <paramref name="directory"/>, which doesn't have to exist until one is saved.</summary>
     public TableStore(string directory)
     {
         Directory = Path.GetFullPath(directory);
     }
 
+    /// <summary>The full path of the directory the tables are in.</summary>
     public string Directory { get; }
 
     /// <summary>The names of every table, in order.</summary>
@@ -62,6 +65,7 @@ public sealed class TableStore
             .Order(StringComparer.Ordinal)];
     }
 
+    /// <summary>Whether there's a table file with this full name.</summary>
     public bool Exists(string name) => IsValidName(name) && File.Exists(PathOf(name));
 
     /// <summary>Reads a table as it was written, without filling anything in.</summary>
@@ -130,6 +134,7 @@ public sealed class TableStore
         }
     }
 
+    /// <summary>Deletes a table's file, if there is one, along with any folders that leaves empty.</summary>
     public void Delete(string name)
     {
         if (!Exists(name))
@@ -180,8 +185,12 @@ public sealed class TableStore
         Path.Combine(Directory, name.Replace(TableCatalog.Separator, Path.DirectorySeparatorChar) + Extension);
 }
 
+/// <summary>What <see cref="TableStore.LoadAll"/> found: the tables that can be rolled on, and what's wrong with the rest.</summary>
+/// <param name="Tables">Every table that loaded.</param>
+/// <param name="Problems">Every table that didn't, and why.</param>
 public sealed record LoadedTables(TableCatalog Tables, IReadOnlyList<TableProblem> Problems)
 {
+    /// <summary>No tables and no problems.</summary>
     public static LoadedTables None { get; } = new(TableCatalog.Empty, []);
 }
 

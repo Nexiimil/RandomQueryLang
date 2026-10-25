@@ -19,7 +19,7 @@ namespace Rql.Syntax;
 /// in Roll20's notation; see <see cref="DiceNotation"/>. Roll20's order of operations is kept: brackets, then
 /// functions, then <c>**</c>, then <c>* / %</c>, then <c>+ -</c>.
 /// </summary>
-public sealed class Parser
+internal sealed class Parser
 {
     private readonly string source;
     private readonly IReadOnlyList<Token> tokens;

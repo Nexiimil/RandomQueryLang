@@ -52,6 +52,29 @@ dotnet run --project src/Rql.Cli -- import loot.csv bestiary.json --project DIR 
 - `src/Rql.Web`: the Blazor web app.
 - `src/Rql.Cli`: the command-line prompt.
 - `tests`: tests for the language (`Rql.Tests`) and the web app's pages (`Rql.Web.Tests`).
+- `build`: the changelog and version checks the workflows run.
+
+### Using the language in a game
+`src/Rql` is published on its own as the `RandomQueryLang` NuGet package, to this repository's [GitHub Packages](https://github.com/Nexiimil?tab=packages&repo_name=RandomQueryLang) feed. Its [readme](src/Rql/README.md) shows how to run queries from code, and its [changelog](src/Rql/CHANGELOG.md) what each version changed. GitHub Packages asks for a sign-in even to download, so add the feed with a GitHub token that can `read:packages`:
+
+```
+dotnet nuget add source https://nuget.pkg.github.com/Nexiimil/index.json --name github --username YOUR_USERNAME --password YOUR_TOKEN
+dotnet add package RandomQueryLang
+```
+
+### Changing the library
+`main` only changes through pull requests, and a pull request can only be merged once these pass:
+
+- **build**: every project builds with no warnings and every test passes. Warnings count as errors, and that includes a public member of the library without a doc comment.
+- **versioning**: a pull request that changes `src/Rql` has to add an entry under `[Unreleased]` in its [changelog](src/Rql/CHANGELOG.md), saying what changed for someone using the package. Once there's been a release, the public API also has to stay compatible with it, unless the changelog declares the change as breaking: an entry under Removed, or one starting with `**Breaking**`.
+
+`dotnet run build/Changelog.cs -- lint` checks the changelog locally.
+
+### Releasing the package
+1. In a pull request, move everything under `[Unreleased]` in the changelog to a new `## [x.y.z] - YYYY-MM-DD` section below it, leaving `[Unreleased]` empty. Pick the version by [Semantic Versioning](https://semver.org): a major release if anything is breaking (a minor one is enough before 1.0), a minor one if anything is added or deprecated, and a patch otherwise.
+2. Once it's merged, tag that commit on `main` and push the tag: `git tag v0.1.0 && git push origin v0.1.0`.
+
+The release workflow then checks the tag is a valid version that's higher than the last release and matches what the changelog says, and that the public API doesn't break without a major bump. If all of that passes, it publishes the package and makes a GitHub release from the changelog section. If any check fails, nothing is published: delete the tag (`git push --delete origin v0.1.0`), fix the problem, and tag again. A version with a hyphen, like `v1.0.0-beta.1`, is published as a prerelease and isn't held to compatibility.
 
 ## Format of a Table
 A table is a file ending in `.RQLtable`, and the file name (without the extension) is the table's name, with any folders it's in at the front, separated by dots, like `Monsters.Undead`. Each line of the file is one thing, in the form:

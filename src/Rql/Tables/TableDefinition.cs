@@ -11,10 +11,13 @@ namespace Rql.Tables;
 /// unless its name is a whole number, which it is then worth. Rows without a chance share whatever the
 /// rows with one leave over, equally.
 /// </remarks>
+/// <param name="Name">The table's full name, folders and all.</param>
+/// <param name="Rows">The rows, in order.</param>
 public sealed record TableDefinition(string Name, IReadOnlyList<TableRow> Rows)
 {
     private const double Epsilon = 1e-9;
 
+    /// <summary>The rows as written, copied so the table doesn't change if the list it was made from does.</summary>
     public IReadOnlyList<TableRow> Rows { get; } = [.. Rows];
 
     /// <summary>

@@ -4,6 +4,27 @@
     <RootNamespace>Rql</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>RandomQueryLang</PackageId>
+    <!-- Releases set this from the tag they're built from (v1.2.0 packs as 1.2.0), so a local pack is never mistaken for one -->
+    <Version>0.0.0-dev</Version>
+    <Authors>Nexiimil</Authors>
+    <Description>A query language for rolling dice and rolling on tables, for video games and table-tops.</Description>
+    <PackageTags>dice;random;tables;rpg;roll20;query-language</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Nexiimil/RandomQueryLang</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Nexiimil/RandomQueryLang</PackageProjectUrl>
+    <!-- Ship the doc comments so they show up in a game's editor. With warnings as errors, a public member without one fails the build -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Checks the package is sound when packed, and, given PackageValidationBaselineVersion, that its public API hasn't broken since that release -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="CHANGELOG.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Rql.Tests" />
   </ItemGroup>

@@ -4,9 +4,13 @@ using System.Text.Json;
 
 namespace Rql.Tables;
 
+/// <summary>The formats <see cref="TableImport"/> can read tables from.</summary>
 public enum ImportFormat
 {
+    /// <summary>Comma, semicolon or tab separated rows, as <see cref="TableImport.FromCsv"/> reads them.</summary>
     Csv,
+
+    /// <summary>A table or several, as <see cref="TableImport.FromJson"/> reads them.</summary>
     Json,
 
     /// <summary>RandomQueryLang's own <c>name;value;chance</c> lines.</summary>

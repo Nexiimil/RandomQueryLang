@@ -28,6 +28,11 @@ public sealed class FunctionRegistry
     /// <summary>Every function, in the order they were added.</summary>
     public IReadOnlyList<Signature> All => all;
 
+    /// <summary>Adds a function record so queries can call it.</summary>
+    /// <exception cref="ArgumentException">
+    /// The type can't be called as a function, or a function of the same name already takes the same type
+    /// first, so a query couldn't say which it meant.
+    /// </exception>
     public FunctionRegistry Add<TFunction>() where TFunction : INode => Add(typeof(TFunction));
 
     /// <exception cref="ArgumentException">

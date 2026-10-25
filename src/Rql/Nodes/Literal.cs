@@ -6,13 +6,17 @@ namespace Rql.Nodes;
 /// </summary>
 public sealed record Literal<T>(T Value) : Node<T> where T : notnull
 {
+    /// <inheritdoc/>
     public override IReadOnlyList<INode> Children => [];
 
+    /// <inheritdoc/>
     public override T Evaluate(Context context) => Value;
 }
 
+/// <summary>Makes literals without spelling out their type.</summary>
 public static class Literal
 {
+    /// <summary>A literal of <paramref name="value"/>, its type taken from the value.</summary>
     public static Literal<T> Of<T>(T value) where T : notnull => new(value);
 
     /// <summary>A literal of a type only known while running, such as a parameter's default.</summary>

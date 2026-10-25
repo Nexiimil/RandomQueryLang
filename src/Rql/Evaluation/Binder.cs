@@ -13,7 +13,7 @@ namespace Rql.Evaluation;
 /// A tree that comes out of here has types that already line up, which is why nothing downstream checks
 /// them again.
 /// </remarks>
-public sealed class Binder
+internal sealed class Binder
 {
     private readonly TableCatalog tables;
     private readonly FunctionRegistry functions;

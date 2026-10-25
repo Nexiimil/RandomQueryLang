@@ -3,16 +3,23 @@ namespace Rql.Nodes;
 /// <summary>One thing in a group as it came out: a roll's total, or a single die, and what became of it.</summary>
 public sealed record GroupEntry(string Text, decimal Value)
 {
+    /// <summary>Left out by keeping or dropping.</summary>
     public bool Dropped { get; init; }
 
+    /// <summary>Kept and matching the group's success target.</summary>
     public bool Success { get; init; }
 
+    /// <summary>Kept and matching the group's failure target, so it takes away a success.</summary>
     public bool Failure { get; init; }
 }
 
 /// <summary>A group as it came out, for showing: what was in it, what was kept or counted, and the total.</summary>
 public sealed record GroupRoll(string Text, IReadOnlyList<GroupEntry> Entries, decimal Total)
 {
+    /// <summary>
+    /// The group written out, like <c>{4d6+2d8, 3d20+3}kh1: 17, (12) = 17</c>: dropped entries in brackets and
+    /// successes marked <c>*</c>.
+    /// </summary>
     public string Describe()
     {
         string Entry(GroupEntry entry)
@@ -83,8 +90,10 @@ internal static class GroupRules
 public sealed record GroupOfRolls(IReadOnlyList<Node<decimal>> Items, IReadOnlyList<string> Texts, GroupModifiers Modifiers, string Text)
     : Node<decimal>
 {
+    /// <inheritdoc/>
     public override IReadOnlyList<INode> Children => [.. Items];
 
+    /// <inheritdoc/>
     public override decimal Evaluate(Context context)
     {
         List<GroupEntry> entries = [.. Items.Select((item, index) => new GroupEntry(Texts[index], item.Evaluate(context)))];
@@ -102,10 +111,13 @@ public sealed record GroupOfRolls(IReadOnlyList<Node<decimal>> Items, IReadOnlyL
 public sealed record GroupOfDice(IReadOnlyList<Node<Dice>> Dice, IReadOnlyList<int> Signs, decimal Offset, GroupModifiers Modifiers, string Text)
     : Node<decimal>
 {
+    /// <inheritdoc/>
     public override IReadOnlyList<INode> Children => [.. Dice];
 
+    /// <inheritdoc/>
     public override bool Rolls => true;
 
+    /// <inheritdoc/>
     public override decimal Evaluate(Context context)
     {
         var entries = new List<GroupEntry>();

@@ -10,7 +10,7 @@ namespace Rql.Evaluation;
 /// arguments and a tree built by hand doesn't have to invent them. Nodes are looked up by reference, so
 /// two nodes that happen to be equal still have their own positions.
 /// </remarks>
-public sealed class BoundQuery
+internal sealed class BoundQuery
 {
     private readonly Dictionary<INode, int> positions;
 

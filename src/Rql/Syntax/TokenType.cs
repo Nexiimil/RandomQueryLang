@@ -1,6 +1,6 @@
 namespace Rql.Syntax;
 
-public enum TokenType
+internal enum TokenType
 {
     Identifier,
     Number,

@@ -6,12 +6,14 @@ namespace Rql.Nodes;
 /// <summary>One argument of a function, as a query writes it.</summary>
 public sealed record Parameter(string Name, Type Type, object? Default)
 {
+    /// <summary>Whether a query can leave this out, which it can when there's a default.</summary>
     public bool IsOptional => Default is not null;
 
     /// <summary>What this parameter stands for when the query leaves it out.</summary>
-    public INode DefaultNode() =>
+    internal INode DefaultNode() =>
         Literal.Of(Type, Default ?? throw new InvalidOperationException($"{Name} is required and has no default"));
 
+    /// <summary>The name as a usage shows it, in brackets when it's optional, like <c>[count]</c>.</summary>
     public override string ToString() => IsOptional ? $"[{Name}]" : Name;
 }
 
@@ -40,15 +42,19 @@ public sealed class Signature
         this.properties = properties;
     }
 
+    /// <summary>The name a query calls this by, in any case.</summary>
     public string Name { get; }
 
+    /// <summary>What the function does, from its <see cref="FunctionAttribute"/>, if it says.</summary>
     public string? Description { get; }
 
     /// <summary>The record built when a query calls this.</summary>
     public Type NodeType { get; }
 
+    /// <summary>The type of value the function produces, the <c>T</c> of its <see cref="Function{T}"/>.</summary>
     public Type Returns { get; }
 
+    /// <summary>The arguments, in the order a query writes them, with the optional ones last.</summary>
     public IReadOnlyList<Parameter> Parameters { get; }
 
     /// <summary>How many arguments a query has to give, the rest having defaults.</summary>
@@ -57,6 +63,8 @@ public sealed class Signature
     /// <summary>How this function is written, for an error that says what was expected.</summary>
     public string Usage => $"{Name}({string.Join(", ", Parameters)})";
 
+    /// <summary>Reads how a function record is written; each type is only read once.</summary>
+    /// <exception cref="ArgumentException">The type can't be called as a function.</exception>
     public static Signature Of<TFunction>() where TFunction : INode => Of(typeof(TFunction));
 
     /// <exception cref="ArgumentException">The type can't be called as a function.</exception>

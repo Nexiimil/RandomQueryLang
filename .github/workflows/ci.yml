@@ -11,6 +11,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,9 +27,43 @@ jobs:
       - name: Restore
         run: dotnet restore RandomQueryLang.slnx
 
-      # Directory.Build.props sets TreatWarningsAsErrors, so any warning fails this step too
+      # Directory.Build.props sets TreatWarningsAsErrors, so any warning fails this step too,
+      # including a public member of the library without a doc comment
       - name: Build
         run: dotnet build RandomQueryLang.slnx --configuration Release --no-restore
 
       - name: Test
         run: dotnet test RandomQueryLang.slnx --configuration Release --no-build
+
+      # Catches a broken package setup here rather than when a release is tagged
+      - name: Pack
+        run: dotnet pack src/Rql/Rql.csproj --configuration Release --no-build --output artifacts
+
+  # A change to the library has to say what changed in its changelog, and can't break the public API
+  # of the last release unless the changelog says it does
+  versioning:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the base branch and the release tags
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check the changelog
+        id: changelog
+        run: dotnet run build/Changelog.cs -- pr origin/${{ github.base_ref }}
+
+      - name: Check the public API against ${{ steps.changelog.outputs.baseline }}
+        if: steps.changelog.outputs.baseline != ''
+        run: |
+          dotnet nuget add source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --name github --username "${{ github.actor }}" --password "${{ secrets.GITHUB_TOKEN }}" --store-password-in-clear-text
+          dotnet pack src/Rql/Rql.csproj --configuration Release --output artifacts \
+            -p:PackageValidationBaselineVersion=${{ steps.changelog.outputs.baseline }}

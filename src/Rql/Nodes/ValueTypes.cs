@@ -11,6 +11,7 @@ public static class ValueTypes
     /// <summary>Numbers, text, tables of things, and dice described rather than rolled.</summary>
     public static IReadOnlyList<Type> All { get; } = [typeof(decimal), typeof(string), typeof(Table), typeof(Dice)];
 
+    /// <summary>Whether a node can produce this type, which is whether it's one of <see cref="All"/>.</summary>
     public static bool IsValueType(Type type) => All.Contains(type);
 
     /// <summary>How a type is named in an error, such as "a number".</summary>

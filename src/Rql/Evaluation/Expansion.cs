@@ -14,29 +14,38 @@ namespace Rql.Evaluation;
 /// <param name="FromCharacterSheet">Whether this stands in for a value Roll20 would read from a character sheet.</param>
 public sealed record RollPrompt(string Key, string Question, string? Default, IReadOnlyList<PromptOption> Options, bool FromCharacterSheet)
 {
+    /// <summary>Whether two prompts ask the same thing, comparing the options one by one rather than as lists.</summary>
     public bool Equals(RollPrompt? other) =>
         other is not null && Key == other.Key && Question == other.Question && Default == other.Default
         && FromCharacterSheet == other.FromCharacterSheet && Options.SequenceEqual(other.Options);
 
+    /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Key, Default);
 }
 
+/// <summary>One of the options a roll query gives to pick between, <c>?{Size|Small,1|Large,2}</c>.</summary>
+/// <param name="Label">What the option is shown as.</param>
+/// <param name="Value">What's put in the query when it's picked; the label too, when the option doesn't give one.</param>
 public sealed record PromptOption(string Label, string Value);
 
 /// <summary>A query that can't be run until it's told the answers to these.</summary>
 public sealed class PromptsNeededException(IReadOnlyList<RollPrompt> prompts)
     : Exception($"this query needs answers for {string.Join(", ", prompts.Select(prompt => prompt.Question))}")
 {
+    /// <summary>Everything the query asks that has no answer and no default.</summary>
     public IReadOnlyList<RollPrompt> Prompts { get; } = prompts;
 }
 
 /// <summary>An inline roll, <c>[[2d6]]</c>, rolled before the rest of the query and put in its place as a number.</summary>
 public sealed record InlineRoll(string Text, decimal Value, int Position)
 {
+    /// <summary>The dice rolled for it.</summary>
     public IReadOnlyList<Nodes.DiceRoll> Rolls { get; init; } = [];
 
+    /// <summary>Groups kept or counted while working it out.</summary>
     public IReadOnlyList<Nodes.GroupRoll> Groups { get; init; } = [];
 
+    /// <summary>Labelled terms in it and what they came to.</summary>
     public IReadOnlyList<Nodes.LabelledValue> Labels { get; init; } = [];
 }
 
